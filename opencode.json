@@ -1,0 +1,18 @@
+﻿{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "baseten/meta-models/muse-spark-open-1026",
+  "provider": {
+    "baseten": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Baseten Hackathon",
+      "options": {
+        "baseURL": "https://inference.baseten.co/v1"
+      },
+      "models": {
+        "meta-models/muse-spark-open-1026": {
+          "name": "Muse Spark Open - Hackathon"
+        }
+      }
+    }
+  }
+}
