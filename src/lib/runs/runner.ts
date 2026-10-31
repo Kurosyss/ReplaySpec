@@ -6,7 +6,7 @@ import type { RunResult, Verdict } from "./types";
 import { mapBug01ToVerdict } from "./verdict";
 import { extractFramesFromVideo } from "../frames/extractor";
 
-const RUNS_ROOT = path.join(process.cwd(), "test-results", "runs");
+const RUNS_ROOT = path.join(/* turbopackIgnore: true */ process.cwd(), "test-results", "runs");
 
 function ensureRunsRoot() {
   fs.mkdirSync(RUNS_ROOT, { recursive: true });

@@ -6,6 +6,18 @@ import { compileSpec, validateCompiledSource } from "@/lib/spec/compiler";
 import { mapBug01ToVerdict } from "@/lib/runs/verdict";
 import type { SpecAssertion } from "@/lib/investigations/types";
 
+async function waitForRunM33(request: any, runId: string, timeoutSec = 30) {
+  for (let i = 0; i < timeoutSec; i++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
+    if (poll.ok()) {
+      const data = await poll.json();
+      if (data.verdict) return data;
+    }
+  }
+  throw new Error(`Run ${runId} did not complete within ${timeoutSec}s`);
+}
+
 // ===== Persistence Tests =====
 test.describe("M3.3 Persistence — file-based investigation store", () => {
   test("create and retrieve investigations", async ({ request }) => {
@@ -14,17 +26,7 @@ test.describe("M3.3 Persistence — file-based investigation store", () => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
     expect(runRes.status()).toBe(202);
     const { runId } = await runRes.json();
-    
-    // Poll for completion
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    const runData = await waitForRunM33(request, runId);
     expect(runData.verdict).toBeTruthy();
 
     // Create investigation from run
@@ -44,17 +46,11 @@ test.describe("M3.3 Persistence — file-based investigation store", () => {
 
   test("persist across simulated server restart (re-read from disk)", async ({ request }) => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const createRes = await request.post("/api/investigations", { data: { runId } });
+    expect(createRes.ok()).toBeTruthy();
     const { id } = await createRes.json();
 
     // Simulate restart by fetching again (reads from disk, not memory)
@@ -82,17 +78,11 @@ test.describe("M3.3 Persistence — file-based investigation store", () => {
   test("atomic write failure handling — malformed JSON returns null", async ({ request }) => {
     // Create a valid investigation first
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const createRes = await request.post("/api/investigations", { data: { runId } });
+    expect(createRes.ok()).toBeTruthy();
     const { id } = await createRes.json();
     // Malformed JSON is handled by store returning null for missing records — we test that valid IDs still work
     const valid = await request.get(`/api/investigations/${id}`);
@@ -121,17 +111,11 @@ test.describe("M3.3 Persistence — file-based investigation store", () => {
     }
     // Frame access also protected
     const validRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(validRes.ok()).toBeTruthy();
     const { runId } = await validRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const createRes = await request.post("/api/investigations", { data: { runId } });
+    expect(createRes.ok()).toBeTruthy();
     const { id } = await createRes.json();
     const frameTraversal = await request.get(`/api/investigations/${id}/frames/..%2Fbundle.json`);
     expect(frameTraversal.status()).toBe(404);
@@ -144,16 +128,9 @@ test.describe("M3.3 Persistence — file-based investigation store", () => {
 test.describe("M3.3 Frame extraction", () => {
   test("normal recording extracts 5-6 frames in order with unique IDs", async ({ request }) => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const invRes = await request.post("/api/investigations", { data: { runId } });
     const { id } = await invRes.json();
     const invGet = await request.get(`/api/investigations/${id}`);
@@ -189,16 +166,9 @@ test.describe("M3.3 Frame extraction", () => {
 test.describe("M3.3 Investigation creation from real run", () => {
   test("real completed run creates investigation", async ({ request }) => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    const runData = await waitForRunM33(request, runId);
     expect(runData.verdict).toBeTruthy();
     const invRes = await request.post("/api/investigations", { data: { runId } });
     expect(invRes.status()).toBe(201);
@@ -415,16 +385,9 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
   test("create investigation from real run and open persisted investigation", async ({ page, request }) => {
     // Create a real run first
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    const runData = await waitForRunM33(request, runId);
     expect(runData.verdict).toBeTruthy();
 
     // Create investigation from run
@@ -447,16 +410,9 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
 
   test("reload persistence preserves frames and spec", async ({ page, request }) => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const invRes = await request.post("/api/investigations", { data: { runId } });
     const { id } = await invRes.json();
 
@@ -471,16 +427,9 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
 
   test("add and remove assertion with read-only preview and copy", async ({ page, request }) => {
     const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(request, runId);
     const invRes = await request.post("/api/investigations", { data: { runId } });
     const { id } = await invRes.json();
 
@@ -532,17 +481,11 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
 
   test("light and dark theme compatibility for new investigation", async ({ page }) => {
     const runRes = await page.request.post("/api/runs", { data: { variant: "fixed" } });
+    expect(runRes.ok()).toBeTruthy();
     const { runId } = await runRes.json();
-    let runData: any;
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await page.request.get(`/api/runs/${runId}`);
-      if (poll.ok()) {
-        runData = await poll.json();
-        if (runData.verdict) break;
-      }
-    }
+    await waitForRunM33(page.request, runId);
     const invRes = await page.request.post("/api/investigations", { data: { runId } });
+    expect(invRes.ok()).toBeTruthy();
     const { id } = await invRes.json();
 
     for (const theme of ["light", "dark"] as const) {
