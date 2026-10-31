@@ -289,7 +289,7 @@ Introduced `src/lib/evidence.ts` per AGENTS.md product principles:
 
 All 20 automated tests in `tests/evidence.spec.ts` cover: timestamp ordering, frame-to-observation references, invalid timestamps (mm:ss.s regex), missing evidence references, observation/hypothesis separation (verbatim preservation, id collision, silent promotion), malformed model output (nonsense, missing frameId, invalid timestamp, hallucinated frame). Tests use `src/lib/evidence` imports and run via `npx playwright test evidence` (Chromium project, but unit-logic only — no browser harness confusion).
 
-### Limitations (honest, per QUALITY_GATES.md)
+### Limitations (honest, per QUALITY_GATES.md) — M2.1
 
 - **Content truncated:** `finish_reason: length` with `content: null` — reasoning_content holds analysis but not final answer; need streaming or larger max_tokens for production.
 - **Video understanding still not claimed:** Only multi-image via image_url verified; direct video_url still reports inability to view video frames (M2.0). Do not claim native video understanding.
@@ -298,8 +298,66 @@ All 20 automated tests in `tests/evidence.spec.ts` cover: timestamp ordering, fr
 - **Short clip (2.96s) → 6 frames → ~0.5s granularity:** Timestamps preserved but still not frame-accurate for rapid interactions; longer buggy-variant recordings needed for empty-postal failure case.
 - **No external upload:** Data URI within 100 MiB limit verified; HTTPS URL path not tested (external host prohibition).
 
-## 10. Implications for ReplaySpec M2.1+
+## 10. M2.2 Comparative Probe — Genuine Empty-Postal Evidence (VERIFIED 2026-10-30)
 
-- Ship M2.1 pipeline as **frame extraction → manifest → multi-image model probe → Zod-normalized EvidenceBundle** (all validated, no silent promotion).
-- Next: integrate frame extractor into Playwright runner (auto-capture 5-6 frames per test run) and wire EvidenceBundle to test specification compiler with allowlisted assertions.
-- Still do not build full recording upload UI until empty-postal-case frames (error visible) are captured and re-probed to confirm validation-feedback detection in buggy vs fixed comparison.
+### New recordings — explicit empty-field precondition
+
+Extended `tests/e2e/bug-01.video.spec.ts` to explicitly clear `postal-code-input` via `fill("")`, assert `toBeEmpty()` and `toHaveValue("")` before `checkout-submit` click, then verify DOM:
+
+- Fixed: `postal-error` visible + text `Postal code is required.` + `aria-invalid=true`, then hold 800ms via `expect.poll(...isVisible())` for video capture, then fill `94105` → success.
+- Buggy: `postal-error` hidden (`display:none` defect) but text correct, `aria-invalid=true` — also held 800ms.
+
+New artifacts outside `public/`:
+
+```
+test-results/artifacts/e2e-bug-01.video-BUG-01-vi-9f930.../video.webm 347,989 bytes 5.8s 800×450 vp9 (fixed empty)
+test-results/artifacts/e2e-bug-01.video-BUG-01-vi-e3110.../video.webm 291,004 bytes 5.72s 800×450 vp9 (buggy empty)
+test-results/frames-empty-fixed-final/manifest.json 6 frames 00:00.8,00:01.2,00:01.8,00:02.5,00:03.2,00:04.0 — 800×450 PNG
+test-results/frames-empty-buggy-final/manifest.json 6 frames 00:00.8,00:01.2,00:01.8,00:02.5,00:03.2,00:04.0
+```
+
+Placeholder changed from `94105` to `Enter postal code` to make empty vs filled visually distinct (model no longer confuses placeholder with value). Previous M2.2 recordings with `94105` throughout are **not** proof of this scenario and are preserved only as `frames-bug01-fixed/manifest.json` with INCONCLUSIVE limitation.
+
+### Genuine multi-image comparison — empty postal (M2.3 probe)
+
+`scripts/probe-genuine-empty.mjs` — same 14-part multi-image format, 6 frames per variant, timestamp text immediately before each `image_url`, concise prompt requiring empty-field precondition explicit.
+
+**Fixed empty-postal:**
+
+- HTTP `200 OK in 21,599ms`, `prompt_tokens: 4,066`, `completion_tokens: 4,101`, `total: 8,167`, `finish_reason: stop`, `content` non-null 4,298 chars
+- Observations: 6 in order `00:00.8 → 00:04.0`, each states “postal code input is empty showing placeholder ‘Enter postal code’ (precondition: empty postal code)”, at `00:01.8` states “validation feedback ‘Postal code is required.’ **IS visible** as text below postal code input”
+- Hypotheses: inferred click between 00:01.2→00:01.8, display:none defect for buggy, fixed expected to show error + aria-invalid
+- Ambiguities: whether postal was cleared (now resolved — empty), DOM display:none not verifiable from screenshots, exact click timing
+
+**Buggy empty-postal:**
+
+- HTTP `200 OK in 18,955ms`, `prompt_tokens: 4,066`, `completion_tokens: 3,039`, `total: 7,105`, `finish_reason: stop`, `content` non-null 3,842 chars
+- Observations: 6 in order, all state “Postal code input empty showing placeholder ‘Enter postal code’ — empty-field precondition met — and no red validation error ‘Postal code is required.’ is visible” at every timestamp, including `00:01.8` where fixed shows error
+- Hypotheses: `Buggy variant likely hides element [data-testid='postal-error'] via display:none` (confidence high), no visible change between frames suggests no UI effect due to hidden error
+- Ambiguities: DOM presence and display:none state cannot be verified from static images alone
+
+**Validation via `src/lib/evidence.ts`:**
+
+Both bundles validate via `EvidenceBundleSchema.safeParse` — frames strictly increasing, every observation references existing frameId with matching timestamp/timestampSeconds, no hypothesis id collision, `inferredFrom` refs exist, `checkNoSilentPromotion` 0 violations. Sanitized artifacts: `test-results/probe-genuine-fixed.json`, `test-results/probe-genuine-buggy.json`, `test-results/probe-genuine-comparison-validated.json` (comparison note: genuine empty-postal evidence replaces previous inconclusive).
+
+**Comparative finding (without claiming unseen events):**
+
+| Variant | Empty precondition (placeholder Enter postal code) | Error at 00:01.8 after submit | Success at 00:02.5 after correction |
+|---------|----------------------------------------------------|-------------------------------|-------------------------------------|
+| Fixed | Visible as empty at 00:00.8,00:01.2 | **IS visible** red “Postal code is required.” below input | IS visible “Order placed successfully.” |
+| Buggy | Same empty at 00:00.8,00:01.2 | **NOT visible** (no red error despite empty) | **NOT visible** — no success (defect prevents progress) |
+
+This is the true defect signal: fixed shows error visible when empty, buggy keeps it hidden despite same empty precondition and DOM text correct. Previous M2.2 recordings with `94105` populated remain INCONCLUSIVE and are not described as proof.
+
+### Implications — M3.2
+
+- Use PNG screenshot extraction via `ffmpeg` + `image_url` with empty placeholder `Enter postal code` to distinguish empty vs filled — verified to produce genuine evidence where fixed/buggy differ only in error visibility.
+- Real execution now runs via `POST /api/runs {variant}` → `test-results/runs/<runId>/` with screenshot.png, trace.zip, video.webm outside `public/`, verdict `DEFECT_CONFIRMED` (buggy hidden) / `REGRESSION_VERIFIED` (fixed visible + success) / `HARNESS_ERROR` (violet distinct) / `INCONCLUSIVE`.
+- Execution UI must poll `GET /api/runs/[id]` after `202` pending, show idle → running → completed/error with real artifacts, never fabricate.
+- Resolve/Promote must validate via `EvidenceBundleSchema` with explicit frame reference — never silent promotion (tested via `EvidenceInspector` modals).
+
+## 11. Implications for ReplaySpec M3.2+
+
+- Ship M2.2+ pipeline as **frame extraction → manifest → multi-image model probe (empty-postal genuine) → Zod-normalized EvidenceBundle → real browser execution → verdict** (all validated, no silent promotion, no arbitrary code).
+- Next: capture BUG-02/Bug-03 with same empty-field discipline and integrate frame extractor into Playwright runner auto-capture; add full investigation workspace persistence.
+- Still keep video understanding as multi-image fallback; do not claim native video understanding until Baseten/Muse supports reliable `video_url` with empty-field evidence.

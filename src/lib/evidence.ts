@@ -27,6 +27,9 @@ export const FrameEvidenceSchema = z.object({
 
 export type FrameEvidence = z.infer<typeof FrameEvidenceSchema>;
 
+export const ObservationProvenanceSchema = z.enum(["VISUAL_FRAME", "PLAYWRIGHT_DOM_ASSERTION", "MODEL_FRAME_ANALYSIS"]);
+export type ObservationProvenance = z.infer<typeof ObservationProvenanceSchema>;
+
 export const ObservationSchema = z.object({
   kind: z.literal("observation"),
   id: z.string().min(1),
@@ -36,6 +39,7 @@ export const ObservationSchema = z.object({
   statement: z.string().min(1).describe("directly visible in frame"),
   confidence: z.enum(["high", "medium", "low"]).optional(),
   sourceFrameFile: z.string().optional(),
+  provenance: ObservationProvenanceSchema.optional().describe("Evidence source: visual, DOM assertion, or model analysis"),
 });
 
 export type Observation = z.infer<typeof ObservationSchema>;

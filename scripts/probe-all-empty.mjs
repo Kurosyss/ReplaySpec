@@ -1,0 +1,22 @@
+import fs from "node:fs";
+const MODEL="meta-models/muse-spark-open-1026";
+const ENDPOINT="https://inference.baseten.co/v1/chat/completions";
+function loadEnv(){ const raw=fs.readFileSync(".env.local","utf8"); const env={}; for(const l of raw.split("\n")){ const t=l.trim(); if(!t||t.startsWith("#"))continue; const eq=t.indexOf("="); if(eq===-1)continue; let v=t.slice(eq+1).trim(); if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'"))) v=v.slice(1,-1); env[t.slice(0,eq).trim()]=v;} return env; }
+const apiKey=loadEnv().BASETEN_API_KEY;
+const files = [
+  "test-results/frames-empty-fixed/frame-00-01-5.png",
+  "test-results/frames-empty-fixed/frame-00-01-8.png",
+  "test-results/frames-empty-fixed/frame-00-02-0.png",
+  "test-results/frames-empty-fixed/frame-00-02-5.png",
+  "test-results/frames-empty-fixed/frame-00-03-2.png",
+  "test-results/frames-empty-fixed/frame-00-04-0.png",
+];
+for (const file of files) {
+  const b64 = fs.readFileSync(file).toString("base64");
+  const body = { model: MODEL, messages: [{ role: "user", content: [{ type: "image_url", image_url: { url: `data:image/png;base64,${b64}`, detail: "auto" } }, { type: "text", text: "Is postal code input empty with placeholder 'Enter postal code' or filled? Is red error 'Postal code is required.' visible below input? Answer concisely." }]}], max_tokens: 400, temperature: 0.1 };
+  const res = await fetch(ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` }, body: JSON.stringify(body) });
+  const j = await res.json();
+  const ans = j.choices[0].message.content ?? j.choices[0].message.reasoning_content;
+  console.log(`\n=== ${file} ===`);
+  console.log(ans.slice(0, 500));
+}
