@@ -35,5 +35,9 @@ export default defineConfig({
     timeout: 60_000,
     stdout: "pipe",
     stderr: "pipe",
+    env: {
+      PLAYWRIGHT_TEST: "1",
+      REPLAYSPEC_ALLOW_FIXTURES: "1",
+    },
   },
 });
