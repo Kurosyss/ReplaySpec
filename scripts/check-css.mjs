@@ -1,0 +1,11 @@
+const res = await fetch("http://localhost:3000/_next/static/chunks/%5Broot-of-the-server%5D__1ebjjql1cky_8._.css");
+const text = await res.text();
+console.log("CSS length", text.length);
+console.log("Has .grid?", text.includes(".grid"));
+console.log("Has grid-cols-12?", text.includes("grid-cols-12"));
+console.log("Has lg:grid-cols?", text.includes("lg:"));
+console.log("Has bg-[var", text.includes("bg-[var"));
+console.log("Has --canvas", text.includes("--canvas"));
+console.log("First 2000", text.slice(0,2000));
+console.log("Has LeftRail?", text.includes("LeftRail"));
+console.log("Has 200px?", text.includes("200px"));

@@ -50,6 +50,68 @@ export function LeftRail() {
     </nav>
   );
 }
+
+type DetailRailProps = {
+  activeTab: "recording" | "evidence" | "spec" | "execution";
+  onSelect: (tab: "recording" | "evidence" | "spec" | "execution") => void;
+  title?: string;
+  bugId?: string;
+};
+
+const DETAIL_NAV: Array<{ id: DetailRailProps["activeTab"]; label: string; icon: string; desc: string }> = [
+  { id: "recording", label: "Recording", icon: "◧", desc: "Frames · Filmstrip" },
+  { id: "evidence", label: "Evidence", icon: "≡", desc: "Observations" },
+  { id: "spec", label: "Specification", icon: "⟐", desc: "Assertions" },
+  { id: "execution", label: "Execution", icon: "▶", desc: "Verdict" },
+];
+
+export function DetailLeftRail({ activeTab, onSelect, title, bugId }: DetailRailProps) {
+  return (
+    <nav aria-label="Investigation workspace" className="hidden w-[220px] shrink-0 flex-col border-r bg-[var(--surface)] lg:flex" style={{ borderColor: "var(--border-muted)" }}>
+      <div className="px-4 py-4">
+        <Link href="/investigations" className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
+          ← Investigations
+        </Link>
+        <h2 className="mt-3 text-[13px] font-semibold leading-4 text-[var(--text-primary)]" style={{ letterSpacing: "-0.015em" }}>
+          {title ?? "Investigation"}
+        </h2>
+        {bugId && <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">{bugId} · forensic</p>}
+      </div>
+      <div className="px-2">
+        {DETAIL_NAV.map((item) => {
+          const active = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onSelect(item.id)}
+              data-testid={`detail-tab-${item.id}`}
+              aria-current={active ? "page" : undefined}
+              className={`flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left transition-colors ${active ? "bg-[var(--surface-elevated)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[13px] ${active ? "bg-[var(--text-primary)] text-[var(--canvas)]" : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"}`}
+              >
+                {item.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[13px] leading-4 ${active ? "font-medium" : ""}`}>{item.label}</span>
+                <span className="block font-mono text-[11px] leading-3 text-[var(--text-tertiary)]">{item.desc}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-auto px-3 pb-4 pt-4">
+        <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+          <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">Target</p>
+          <p className="mt-1 font-mono text-[11px] font-medium text-[var(--text-primary)]">/demo/bug-01</p>
+          <p className="font-mono text-[10px] leading-4 text-[var(--text-tertiary)]">allowlisted · Chromium</p>
+        </div>
+      </div>
+    </nav>
+  );
+}
 export function LeftRailMobile() {
   return (
     <nav aria-label="Investigation sections mobile" className="flex items-center justify-around border-t bg-[var(--surface)] py-2 lg:hidden" style={{ borderColor: "var(--border-muted)" }}>

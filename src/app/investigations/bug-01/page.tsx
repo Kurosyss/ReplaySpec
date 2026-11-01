@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { bug01Investigation } from "@/lib/fixtures/bug01-investigation";
 import { TopBar } from "@/components/investigation/TopBar";
-import { LeftRail, LeftRailMobile } from "@/components/investigation/LeftRail";
+import { DetailLeftRail, LeftRailMobile } from "@/components/investigation/LeftRail";
 import { FrameViewer } from "@/components/investigation/FrameViewer";
 import { Filmstrip } from "@/components/investigation/Filmstrip";
 import { EvidenceTimeline } from "@/components/investigation/EvidenceTimeline";
@@ -54,7 +54,7 @@ export default function InvestigationDetailPage() {
     <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
       <TopBar investigationId="bug-01" bugLabel="BUG-01 — Checkout postal-code validation" verdict="REGRESSION_VERIFIED" variant="fixed" />
       <div className="flex flex-1 flex-col lg:flex-row">
-        <LeftRail />
+        <DetailLeftRail activeTab={activeTab} onSelect={setActiveTab} title="BUG-01 — Checkout postal-code validation" bugId="BUG-01" />
         <main className="flex flex-1 flex-col gap-4 bg-[var(--canvas)] p-4 lg:min-w-0">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -71,7 +71,7 @@ export default function InvestigationDetailPage() {
             </p>
           </div>
 
-          <div className="flex gap-1 rounded-[8px] border bg-[var(--surface-elevated)] p-1" style={{ borderColor: "var(--border-muted)" }}>
+          <div className="flex gap-1 rounded-[8px] border bg-[var(--surface-elevated)] p-1 lg:hidden" style={{ borderColor: "var(--border-muted)" }}>
             {[
               { id: "recording", label: "Recording" },
               { id: "evidence", label: "Evidence" },
@@ -82,7 +82,7 @@ export default function InvestigationDetailPage() {
                 key={tab.id}
                 data-testid={`detail-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[12px] font-medium ${activeTab === tab.id ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
+                className={`flex-1 rounded-[6px] px-3 py-1.5 text-[12px] font-medium ${activeTab === tab.id ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
                 style={{ border: activeTab === tab.id ? "1px solid var(--border-muted)" : "1px solid transparent" }}
               >
                 {tab.label}
@@ -146,26 +146,32 @@ export default function InvestigationDetailPage() {
         </main>
         <aside className="hidden w-[380px] shrink-0 flex-col border-l bg-[var(--surface)] lg:flex" style={{ borderColor: "var(--border-muted)" }}>
           <div className="flex h-full flex-col">
-            <div className="flex gap-1 border-b bg-[var(--surface-elevated)] p-1" style={{ borderColor: "var(--border-muted)" }}>
-              <button
-                data-testid="inspector-tab-evidence"
-                onClick={() => setActiveTab("evidence")}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[11px] font-medium ${activeTab === "evidence" ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
-                style={{ border: activeTab === "evidence" ? "1px solid var(--border-muted)" : "1px solid transparent" }}
-              >
-                Evidence
-              </button>
-              <button
-                data-testid="inspector-tab-spec"
-                onClick={() => setActiveTab("spec")}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[11px] font-medium ${activeTab === "spec" ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
-                style={{ border: activeTab === "spec" ? "1px solid var(--border-muted)" : "1px solid transparent" }}
-              >
-                Specification
-              </button>
+            <div className="flex items-center justify-between border-b px-3 py-2.5" style={{ borderColor: "var(--border-muted)", background: "var(--surface-elevated)" }}>
+              <h3 className="text-[12px] font-semibold tracking-tight text-[var(--text-primary)]" style={{ letterSpacing: "-0.015em" }}>
+                {activeTab === "evidence" ? "Evidence Inspector" : activeTab === "spec" ? "Specification" : activeTab === "execution" ? "Execution" : "Frame Details"}
+              </h3>
+              <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-mono text-[10px] font-medium text-[var(--text-tertiary)]" style={{ border: "1px solid var(--border-muted)" }}>
+                {activeTab}
+              </span>
             </div>
             <div className="flex-1 overflow-auto p-3">
-              {activeTab === "spec" ? <SpecBuilder investigationId="bug-01" bundle={bundle} /> : <EvidenceInspector bundle={bundle} activeEvidenceId={activeEvidenceId} onSelectFrame={handleSelectFrame} />}
+              {activeTab === "evidence" ? (
+                <EvidenceInspector bundle={bundle} activeEvidenceId={activeEvidenceId} onSelectFrame={handleSelectFrame} />
+              ) : activeTab === "spec" ? (
+                <SpecBuilder investigationId="bug-01" bundle={bundle} />
+              ) : activeTab === "execution" ? (
+                <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                  <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Execution</p>
+                  <p className="mt-1 text-[13px] leading-5 text-[var(--text-secondary)]">Run history and verdict timeline — see bottom drawer.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                    <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">Active Frame</p>
+                    <p className="mt-1 font-mono text-[12px] font-medium text-[var(--text-primary)]">{frames.find((f) => f.frameId === activeFrameId)?.frameId} · {frames.find((f) => f.frameId === activeFrameId)?.timestamp}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </aside>

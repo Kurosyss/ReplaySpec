@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { bug01Investigation } from "@/lib/fixtures/bug01-investigation";
 import { TopBar } from "@/components/investigation/TopBar";
-import { LeftRail, LeftRailMobile } from "@/components/investigation/LeftRail";
+import { DetailLeftRail, LeftRailMobile } from "@/components/investigation/LeftRail";
 import { FrameViewer } from "@/components/investigation/FrameViewer";
 import { Filmstrip } from "@/components/investigation/Filmstrip";
 import { EvidenceTimeline } from "@/components/investigation/EvidenceTimeline";
@@ -153,7 +153,7 @@ export default function InvestigationDetailDynamicPage() {
     <div className="flex min-h-screen flex-col bg-[var(--canvas)]">
       <TopBar investigationId={meta.id} bugLabel={meta.title} verdict={meta.verdict} variant={meta.variant} />
       <div className="flex flex-1 flex-col lg:flex-row">
-        <LeftRail />
+        <DetailLeftRail activeTab={activeTab} onSelect={setActiveTab} title={meta.title} bugId={meta.bugId} />
         <main className="flex flex-1 flex-col gap-4 bg-[var(--canvas)] p-4 lg:min-w-0">
           <div className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -174,8 +174,8 @@ export default function InvestigationDetailDynamicPage() {
             </p>
           </div>
 
-          {/* Tab bar */}
-          <div className="flex gap-1 rounded-[8px] border bg-[var(--surface-elevated)] p-1" style={{ borderColor: "var(--border-muted)" }}>
+          {/* Investigation tabs — mobile only; desktop uses LeftRail */}
+          <div className="flex gap-1 rounded-[8px] border bg-[var(--surface-elevated)] p-1 lg:hidden" style={{ borderColor: "var(--border-muted)" }}>
             {[
               { id: "recording", label: "Recording" },
               { id: "evidence", label: "Evidence" },
@@ -186,7 +186,7 @@ export default function InvestigationDetailDynamicPage() {
                 key={tab.id}
                 data-testid={`detail-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[12px] font-medium ${activeTab === tab.id ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
+                className={`flex-1 rounded-[6px] px-3 py-1.5 text-[12px] font-medium ${activeTab === tab.id ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"}`}
                 style={{ border: activeTab === tab.id ? "1px solid var(--border-muted)" : "1px solid transparent" }}
               >
                 {tab.label}
@@ -214,21 +214,41 @@ export default function InvestigationDetailDynamicPage() {
             </>
           ) : null}
           {activeTab === "evidence" ? (
-            <div className="rounded-[8px] border bg-[var(--surface)] p-4" style={{ borderColor: "var(--border-muted)" }}>
-              <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Evidence — Observations grouped by frame</p>
-              <div className="mt-3 flex flex-col gap-2">
+            <div className="rounded-[10px] border bg-[var(--surface)] p-4" style={{ borderColor: "var(--border-muted)" }}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">Evidence</h3>
+                <span className="rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 font-mono text-[10px] font-medium text-[var(--text-tertiary)]" style={{ border: "1px solid var(--border-muted)" }}>
+                  {bundle.observations.length} observations · {bundle.frames.length} frames
+                </span>
+              </div>
+              <div className="mt-3 space-y-3">
                 {bundle.frames.map((f) => {
                   const obs = bundle.observations.filter((o) => o.frameId === f.frameId);
                   if (obs.length === 0) return null;
                   return (
-                    <div key={f.frameId} className="rounded-[8px] border bg-[var(--surface-elevated)] p-2" style={{ borderColor: "var(--border-muted)" }}>
-                      <p className="font-mono text-[11px] font-medium text-[var(--accent)]">⟦{f.timestamp}⟧ {f.frameId}</p>
-                      {obs.map((o) => (
-                        <div key={o.id} className="mt-1 rounded-[6px] border bg-[var(--surface)] p-2" style={{ borderColor: "var(--border-muted)" }}>
-                          <p className="font-mono text-[11px] font-medium text-[var(--text-primary)]">{o.id} — {o.statement.slice(0, 80)}…</p>
-                          <p className="font-mono text-[11px] text-[var(--text-tertiary)]">frame: {o.frameId} • {o.timestamp}</p>
-                        </div>
-                      ))}
+                    <div key={f.frameId} className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                      <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium">
+                        <span className="text-[var(--accent)]">⟦{f.timestamp}⟧</span>
+                        <span className="text-[var(--text-tertiary)]">{f.frameId}</span>
+                        <span className="h-px flex-1 bg-[var(--border-muted)]" aria-hidden="true" />
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">{obs.length} obs</span>
+                      </p>
+                      <div className="mt-2 space-y-2">
+                        {obs.map((o) => (
+                          <div key={o.id} className="rounded-[6px] border bg-[var(--surface)] p-2.5" style={{ borderColor: "var(--border-muted)" }}>
+                            <p className="text-[13px] leading-[18px] text-[var(--text-primary)]">{o.statement}</p>
+                            <p className="mt-1.5 flex items-center gap-2 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">
+                              <span className="inline-flex rounded bg-[var(--surface-elevated)] px-1.5 py-0.5 text-[10px] font-medium tracking-wide text-[var(--text-secondary)]" style={{ border: "1px solid var(--border-muted)" }}>
+                                {o.id}
+                              </span>
+                              <span>{o.frameId} · {o.timestamp}</span>
+                              <span className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-medium" style={{ background: "var(--accent-muted)", color: "var(--accent)" }}>
+                                {o.provenance}
+                              </span>
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -267,26 +287,54 @@ export default function InvestigationDetailDynamicPage() {
 
         <aside className="hidden w-[380px] shrink-0 flex-col border-l bg-[var(--surface)] lg:flex" style={{ borderColor: "var(--border-muted)" }}>
           <div className="flex h-full flex-col">
-            <div className="flex gap-1 border-b bg-[var(--surface-elevated)] p-1" style={{ borderColor: "var(--border-muted)" }}>
-              <button
-                data-testid="inspector-tab-evidence"
-                onClick={() => setActiveTab("evidence")}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[11px] font-medium ${activeTab === "evidence" ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
-                style={{ border: activeTab === "evidence" ? "1px solid var(--border-muted)" : "1px solid transparent" }}
-              >
-                Evidence
-              </button>
-              <button
-                data-testid="inspector-tab-spec"
-                onClick={() => setActiveTab("spec")}
-                className={`flex-1 rounded-[6px] px-3 py-1.5 font-mono text-[11px] font-medium ${activeTab === "spec" ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-sm" : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"}`}
-                style={{ border: activeTab === "spec" ? "1px solid var(--border-muted)" : "1px solid transparent" }}
-              >
-                Specification
-              </button>
+            <div className="flex items-center justify-between border-b px-3 py-2.5" style={{ borderColor: "var(--border-muted)", background: "var(--surface-elevated)" }}>
+              <h3 className="text-[12px] font-semibold tracking-tight text-[var(--text-primary)]" style={{ letterSpacing: "-0.015em" }}>
+                {activeTab === "evidence" ? "Evidence Inspector" : activeTab === "spec" ? "Specification" : activeTab === "execution" ? "Execution" : "Frame Details"}
+              </h3>
+              <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-mono text-[10px] font-medium text-[var(--text-tertiary)]" style={{ border: "1px solid var(--border-muted)" }}>
+                {activeTab}
+              </span>
             </div>
             <div className="flex-1 overflow-auto p-3">
-              {activeTab === "evidence" ? <EvidenceInspector bundle={bundle} activeEvidenceId={activeEvidenceId} onSelectFrame={handleSelectFrame} /> : <SpecBuilder investigationId={meta.id} bundle={bundle} specSupportStatus={meta.specSupportStatus} />}
+              {activeTab === "evidence" ? (
+                <EvidenceInspector bundle={bundle} activeEvidenceId={activeEvidenceId} onSelectFrame={handleSelectFrame} />
+              ) : activeTab === "spec" ? (
+                <SpecBuilder investigationId={meta.id} bundle={bundle} specSupportStatus={meta.specSupportStatus} />
+              ) : activeTab === "execution" ? (
+                <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                  <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Execution</p>
+                  <p className="mt-1 text-[13px] leading-5 text-[var(--text-secondary)]">Run history and verdict timeline — see bottom drawer for current run.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                    <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">Active Frame</p>
+                    <p className="mt-1 font-mono text-[12px] font-medium text-[var(--text-primary)]">
+                      {activeFrame?.frameId} · {activeFrame?.timestamp}
+                    </p>
+                    <p className="font-mono text-[11px] text-[var(--text-tertiary)]">
+                      {activeFrame?.width}×{activeFrame?.height} · {activeFrame?.format.toUpperCase()}
+                    </p>
+                  </div>
+                  {(() => {
+                    const obs = bundle.observations.filter((o) => o.frameId === activeFrameId);
+                    if (obs.length === 0) return <p className="text-[13px] leading-5 text-[var(--text-tertiary)]">No observations for this frame.</p>;
+                    return (
+                      <div className="space-y-2">
+                        {obs.map((o) => (
+                          <div key={o.id} className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+                            <p className="text-[13px] font-medium leading-4 text-[var(--text-primary)]">{o.id}</p>
+                            <p className="mt-1 text-[13px] leading-5 text-[var(--text-secondary)]">{o.statement}</p>
+                            <p className="mt-1 font-mono text-[11px] text-[var(--text-tertiary)]">
+                              {o.provenance} · {o.confidence}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         </aside>

@@ -1,0 +1,15 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage();
+await page.goto("http://localhost:3000/investigations/bug-01", { waitUntil: "networkidle" });
+await page.waitForTimeout(1000);
+console.log("Initial activeTab:", await page.evaluate(() => document.body.innerHTML.slice(0, 500)));
+await page.locator('[data-testid="detail-tab-evidence"]:visible').first().click();
+await page.waitForTimeout(500);
+console.log("After click evidence, URL:", page.url());
+console.log("Evidence timeline visible:", await page.locator('[data-testid="evidence-timeline"]:visible').first().isVisible().catch(() => false));
+console.log("Observation card visible:", await page.getByTestId("observation-card-obs-1").first().isVisible().catch(() => false));
+console.log("All observation cards count:", await page.locator("[data-testid^='observation-card-']").count());
+console.log("Inspector visible:", await page.getByTestId("inspector-statement").first().isVisible().catch(() => false));
+console.log("HTML snippet:", (await page.content()).slice(0, 3000));
+await browser.close();
