@@ -18,13 +18,13 @@ export const MODEL_PROVIDERS = {
     usageNote: "Muse Spark Open access and paid usage depend on the provider account.",
   },
   openrouter: {
-    label: "OpenRouter Free",
+    label: "Meta Llama 4 Maverick (OpenRouter)",
     baseUrl: "https://openrouter.ai/api/v1",
-    model: "openrouter/free",
+    model: "meta-llama/llama-4-maverick",
     credential: "OPENROUTER_API_KEY",
-    pricingUrl: "https://openrouter.ai/openrouter/free",
+    pricingUrl: "https://openrouter.ai/meta-llama/llama-4-maverick",
     maxImages: 3,
-    usageNote: "Routes only to free models; the selected model can vary and is not guaranteed to be from Meta. OpenRouter enforces free-tier rate limits.",
+    usageNote: "Meta Llama 4 Maverick accepts text and images. OpenRouter routes to available providers; inference is paid and provider rates apply.",
   },
   together: {
     label: "Together AI",
@@ -58,7 +58,7 @@ export type ModelProviderId = keyof typeof MODEL_PROVIDERS;
 type Environment = Record<string, string | undefined>;
 
 export function getModelProviderConfig(env: Environment = process.env) {
-  const providerValue = (env.MODEL_PROVIDER ?? env.MUSE_PROVIDER ?? "groq").trim().toLowerCase();
+  const providerValue = (env.MODEL_PROVIDER ?? env.MUSE_PROVIDER ?? "openrouter").trim().toLowerCase();
   if (!Object.hasOwn(MODEL_PROVIDERS, providerValue)) {
     return { provider: null, invalidProvider: providerValue, configured: false } as const;
   }

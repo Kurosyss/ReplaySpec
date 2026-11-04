@@ -23,8 +23,8 @@ flowchart TD
         Allowlist["Allowlist & SSRF Filter\n(/demo/bug-01, /demo/bug-02, /demo/bug-03)"]
     end
 
-    subgraph AI_Boundary ["Muse Spark Multimodal Boundary"]
-        MuseProvider["Configured vision provider\nGroq / Qwen default; Muse option"]
+    subgraph AI_Boundary ["Vision Model Boundary"]
+        ModelProvider["Configured vision provider\nOpenRouter / Meta Llama 4 Maverick default"]
         FrameSeq["Timestamped Frame Array\n(Base64 JPEGs + Prompt Contract)"]
         SchemaVal["Zod Schema Normalization\nUntrusted Model Output Validator"]
     end
@@ -50,7 +50,7 @@ flowchart TD
     %% Data Connections
     UI_Intake -->|Upload MP4/WebM| API_Rec
     API_Rec --> API_Ana
-    API_Ana --> FrameSeq --> MuseProvider --> SchemaVal
+    API_Ana --> FrameSeq --> ModelProvider --> SchemaVal
     SchemaVal --> API_Inv
     API_Inv --> UI_Studio
     UI_Studio -->|Build Spec| Compiler
@@ -75,7 +75,7 @@ flowchart TD
 - **Timestamp Integrity**: Preserves exact frame timestamps (`mm:ss.s`), generating deterministic `frameId` tokens (`frame-00-01-8`) with verified resolution.
 
 ### C. Configured Multimodal Analysis Boundary
-- **Current default**: Groq `qwen/qwen3.8-27b`. Meta Muse Spark Open is an optional model route, not the current default; it requires an account and credentials at a provider that grants access. Provider/model IDs live in `src/lib/muse/provider.ts` and may change with provider availability.
+- **Current default**: OpenRouter `meta-llama/llama-4-maverick`, with server-side `OPENROUTER_API_KEY`. The endpoint accepts text and images and is paid; access and rates depend on OpenRouter's available upstream providers. A live image request was verified during integration. Meta Muse Spark Open is not the configured model.
 - **Provider Protocol**: OpenAI-compatible chat completion payload with interleaved base64 image frames.
 - **Zero-Trust Boundary**: Model output is treated as untrusted JSON input. The payload is parsed and strictly validated against Zod schemas. Any invalid JSON, missing provenance, or fabricated IDs are rejected.
 - **Strict Evidence Taxonomy**:

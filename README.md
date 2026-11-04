@@ -10,6 +10,18 @@ ReplaySpec is a prototype browser investigation studio built for the Meta Global
 
 > **Prototype status:** ReplaySpec is a local hackathon prototype. The built-in checkout is a demo and does not place real orders or collect payment. Live model access depends on your provider credentials and must be verified with an actual analysis request.
 
+## Product demo
+
+Watch the 49-second walkthrough, from timestamped browser evidence to a verified regression result.
+
+<p align="center">
+  <a href="https://youtu.be/k4639XEHpeI">
+    <img src="https://img.youtube.com/vi/k4639XEHpeI/hqdefault.jpg" alt="Watch the ReplaySpec product demo on YouTube" width="720">
+  </a>
+</p>
+
+ReplaySpec was built for the [Meta Global AI Developer Hackathon 2026](https://dev.meta.ai/events/global-hackathon). The repository documents the prototype and its implementation; the project does not imply Meta endorsement.
+
 ## Why ReplaySpec
 
 Bug clips show what happened, but often leave teams guessing what should have happened and how to prevent a repeat. ReplaySpec keeps those pieces inspectable:
@@ -23,17 +35,41 @@ The workflow is recording → timestamped frames → evidence review → regress
 
 ## Screenshots
 
-The screenshots below are captured from the running prototype. They show the home page and two evidence reviews with the full browser frames visible beside their observations and expected behaviour.
+Each image is shown separately at the full content width so reviewers can inspect labels and evidence without a side-by-side thumbnail layout.
 
-<table>
-  <tr>
-    <td width="50%"><strong>Home</strong><br><img src="docs/assets/home-light.png" alt="ReplaySpec home page" width="100%"></td>
-    <td width="50%"><strong>BUG-02 evidence review</strong><br><img src="docs/assets/bug-02-evidence.png" alt="Cart counter race investigation with full captured frame and evidence inspector" width="100%"></td>
-  </tr>
-  <tr>
-    <td colspan="2"><strong>BUG-03 modal evidence</strong><br><img src="docs/assets/bug-03-evidence.png" alt="Modal overlay investigation showing the full confirmation dialog and blocked cancel state" width="100%"></td>
-  </tr>
-</table>
+### Home
+
+![ReplaySpec home page](docs/assets/home-light.png)
+
+### Investigations
+
+![Investigations listing with curated benchmarks and saved investigations](docs/assets/investigations-light.png)
+
+### New investigation
+
+![New investigation intake with upload, behavior contract, privacy, and model setup](docs/assets/new-investigation.png)
+
+### BUG-01 · Checkout validation
+
+![Checkout postal-code evidence with the frame-grounded validation observation](docs/assets/bug-01-evidence.png)
+
+### BUG-02 · Cart counter evidence
+
+![Cart counter investigation with the full frame and evidence inspector](docs/assets/bug-02-evidence.png)
+
+### BUG-02 · Evidence and specification views
+
+![Evidence view with frame-grounded observations](docs/assets/workspace-evidence.png)
+
+![Regression specification view](docs/assets/workspace-specification.png)
+
+### BUG-02 · Execution
+
+![Execution view with browser verdict and artifacts](docs/assets/workspace-execution.png)
+
+### BUG-03 · Modal overlay evidence
+
+![Modal overlay investigation with the confirmation dialog and evidence inspector](docs/assets/bug-03-evidence.png)
 
 ## Architecture
 
@@ -58,7 +94,7 @@ flowchart LR
     Verdict --> Studio
 ```
 
-The model boundary is provider-configurable. This workspace is set to OpenRouter's free-model router; the routed model can change and is not guaranteed to be from Meta. A real request succeeded during development, but returned a non-Meta model. Meta model access is not verified in this prototype. The presence of a key or configured status alone does not establish live analysis. See [Model setup](docs/MODEL_SETUP.md) for provider details.
+The model boundary uses OpenRouter's Meta Llama 4 Maverick for image analysis. A live image request returned a structured response during verification. This is a paid endpoint; the one-image check cost $0.00058023. See [Model setup](docs/MODEL_SETUP.md) for setup and usage notes.
 
 Investigation and run artifacts are stored locally under `test-results/`, outside the public asset directory. The browser runner accepts only the bundled demo routes and uses scenario templates; it does not run source code returned by a model.
 
@@ -78,7 +114,7 @@ This prototype currently uses local file-backed persistence. It does not include
 - Recording intake and timestamped frame review.
 - Evidence, specification, and execution views for investigations.
 - Chromium runs with screenshots, traces, and explicit verdict states: `REGRESSION_VERIFIED`, `DEFECT_CONFIRMED`, `HARNESS_ERROR`, and `INCONCLUSIVE`.
-- Optional server-side multimodal analysis through a configured provider. The current workspace uses OpenRouter's free-model router; its selected model can vary and Meta model access has not been verified.
+- Optional server-side multimodal analysis through OpenRouter's Meta Llama 4 Maverick endpoint. Provider charges apply.
 - Privacy, prototype terms, and error/not-found pages.
 
 ## Run locally
@@ -109,7 +145,7 @@ Model credentials are read on the server. Do not use a `NEXT_PUBLIC_` variable f
 3. Set `REPLAYSPEC_LIVE_ANALYSIS=true` only when ready to send recording frames to that provider.
 4. Restart the dev server and make an analysis request. The status endpoint only confirms configuration; it does not prove the provider accepted a request.
 
-For the current OpenRouter free-model router:
+For the OpenRouter Meta Llama vision setup:
 
 ```env
 MODEL_PROVIDER=openrouter
@@ -117,7 +153,7 @@ OPENROUTER_API_KEY=your_openrouter_key
 REPLAYSPEC_LIVE_ANALYSIS=true
 ```
 
-This free router is not guaranteed to select a Meta model. Do not describe the project as using Meta AI until a Meta model endpoint has been configured and a successful analysis request has confirmed it. Provider IDs and setup details are in [Model setup](docs/MODEL_SETUP.md).
+This model endpoint is paid. Live analysis sends selected frames to OpenRouter; check current provider rates and account usage before processing recordings. Provider setup details are in [Model setup](docs/MODEL_SETUP.md).
 
 ## Verification commands
 
@@ -137,7 +173,7 @@ These commands are provided for maintainers; a command listed here is not a clai
 - Run artifacts are stored outside the public asset directory.
 - The demo checkout does not create an order, send a confirmation email, or collect payment.
 - Live analysis sends selected recording frames and the investigator's prompt to the configured model provider. Use only recordings you are permitted to share with that provider.
-- Meta Muse Spark Open is not verified as a live integration in this workspace; the provider configuration and a successful real analysis call are separate checks.
+- The configured Meta model is Llama 4 Maverick. Meta Muse Spark Open is not part of this integration.
 
 ## Project docs
 

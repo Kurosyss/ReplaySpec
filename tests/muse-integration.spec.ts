@@ -2,10 +2,10 @@ import { test, expect } from "@playwright/test";
 import { getModelProviderConfig } from "../src/lib/muse/provider";
 
 test.describe("Model provider integration — provider config and validation", () => {
-  test("defaults to the Groq vision model without exposing credentials", () => {
+  test("defaults to Meta Llama 4 Maverick without exposing credentials", () => {
     const config = getModelProviderConfig({});
-    expect(config.provider).toBe("groq");
-    expect(config.model).toBe("qwen/qwen3.8-27b");
+    expect(config.provider).toBe("openrouter");
+    expect(config.model).toBe("meta-llama/llama-4-maverick");
     expect(config.maxImages).toBe(3);
     expect(config.configured).toBe(false);
     expect(config.liveAnalysisEnabled).toBe(false);
@@ -13,8 +13,8 @@ test.describe("Model provider integration — provider config and validation", (
   });
 
   test("live analysis requires an explicit server-side opt-in", () => {
-    const locked = getModelProviderConfig({ MODEL_PROVIDER: "groq", GROQ_API_KEY: "test-secret" });
-    const enabled = getModelProviderConfig({ MODEL_PROVIDER: "groq", GROQ_API_KEY: "test-secret", REPLAYSPEC_LIVE_ANALYSIS: "true" });
+    const locked = getModelProviderConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-secret" });
+    const enabled = getModelProviderConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-secret", REPLAYSPEC_LIVE_ANALYSIS: "true" });
     expect(locked.configured).toBe(true);
     expect(locked.liveAnalysisEnabled).toBe(false);
     expect(enabled.liveAnalysisEnabled).toBe(true);
@@ -23,9 +23,9 @@ test.describe("Model provider integration — provider config and validation", (
   test("supports provider selection while keeping credentials server-side", () => {
     const config = getModelProviderConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-secret" });
     expect(config.provider).toBe("openrouter");
-    expect(config.model).toBe("openrouter/free");
+    expect(config.model).toBe("meta-llama/llama-4-maverick");
     expect(config.maxImages).toBe(3);
-    expect(config.pricingUrl).toBe("https://openrouter.ai/openrouter/free");
+    expect(config.pricingUrl).toBe("https://openrouter.ai/meta-llama/llama-4-maverick");
     expect(config.configured).toBe(true);
     expect(config.apiKey).toBe("test-secret");
   });

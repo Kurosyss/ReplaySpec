@@ -1,0 +1,31 @@
+1
+00:00:00,333 --> 00:00:03,390
+A bug is easy to capture; proving the fix is the hard part.
+
+2
+00:00:03,946 --> 00:00:09,321
+ReplaySpec turns that clip into timestamped evidence, a regression check, and a Chromium verdict.
+
+3
+00:00:09,877 --> 00:00:16,360
+Observations stay tied to their frames; expectations, model hypotheses, and uncertainty remain distinct.
+
+4
+00:00:16,916 --> 00:00:22,694
+Optional Meta Llama 4 vision helps review selected frames; a constrained browser check decides the verdict.
+
+5
+00:00:23,250 --> 00:00:29,423
+Two cart clicks should move quantity from one to three; the buggy run stops at two, and the fixed run reaches three.
+
+6
+00:00:29,979 --> 00:00:35,031
+Three curated cases cover checkout validation, a cart race, and a blocked modal cancel.
+
+7
+00:00:35,587 --> 00:00:40,528
+Runs stay within bundled demo routes and local file storage; checkout collects no payment.
+
+8
+00:00:41,083 --> 00:00:45,332
+ReplaySpec: browser evidence, connected to repeatable regression proof.

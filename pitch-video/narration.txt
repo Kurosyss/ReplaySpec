@@ -1,0 +1,15 @@
+A bug is easy to capture; proving the fix is the hard part.
+
+ReplaySpec turns that clip into timestamped evidence, a regression check, and a Chromium verdict.
+
+Observations stay tied to their frames; expectations, model hypotheses, and uncertainty remain distinct.
+
+Optional Meta Llama 4 vision helps review selected frames; a constrained browser check decides the verdict.
+
+Two cart clicks should move quantity from one to three; the buggy run stops at two, and the fixed run reaches three.
+
+Three curated cases cover checkout validation, a cart race, and a blocked modal cancel.
+
+Runs stay within bundled demo routes and local file storage; checkout collects no payment.
+
+ReplaySpec: browser evidence, connected to repeatable regression proof.
