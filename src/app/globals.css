@@ -1,69 +1,121 @@
 @import "tailwindcss";
 
-/* ============================================
-   ReplaySpec Design Tokens — Linear-inspired
-   Dark primary, light secondary — both first-class
-   ============================================ */
+/* ==========================================================================
+   ReplaySpec Design Tokens — Swiss International & Editorial Discipline
+   Refined Surface Language: Geodesic Curvature Tiers
+   Colour Hierarchy: Neutral Foundation, Restrained Cobalt Accent, Functional Semantics
+   ========================================================================== */
 
 :root,
 [data-theme="light"] {
+  /* Canvas & Surface Layers */
   --canvas: #ffffff;
   --surface: #ffffff;
-  --surface-elevated: #f8f8f9;
-  --surface-hover: #f1f1f2;
-  --border: #e8e8ea;
-  --border-muted: rgba(0, 0, 0, 0.08);
-  --border-strong: #d4d4d8;
-  --text-primary: #111113;
-  --text-secondary: #6b6c72;
-  --text-tertiary: #9ca3af;
-  --accent: #5e6ad2;
-  --accent-hover: #4f5ac0;
-  --accent-muted: rgba(94, 106, 210, 0.12);
-  --red: #ef4444;
-  --red-muted: rgba(239, 68, 68, 0.08);
-  --green: #10b981;
-  --green-muted: rgba(16, 185, 129, 0.08);
-  --amber: #f59e0b;
-  --amber-muted: rgba(245, 158, 11, 0.1);
-  --violet: #8b5cf6;
-  --violet-muted: rgba(139, 92, 246, 0.08);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --surface-elevated: #f4f5f8;
+  --surface-hover: #eaecee;
+
+  /* Hairline Precision Borders */
+  --border: #e2e5eb;
+  --border-muted: rgba(15, 23, 42, 0.08);
+  --border-strong: #c8cdd7;
+
+  /* Editorial Typography Text Layers */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+
+  /* Brand Accent: Restrained Institutional Cobalt (not playful neon) */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-muted: rgba(37, 99, 235, 0.08);
+
+  /* Functional Semantics: strictly reserved for verified conditions */
+  --red: #dc2626;
+  --red-muted: rgba(220, 38, 38, 0.08);
+
+  --green: #15803d;
+  --green-muted: rgba(21, 128, 61, 0.08);
+  --success-surface: #ecfdf3;
+  --success-border: #86efac;
+  --success-text: #166534;
+  --success-icon: #15803d;
+
+  /* Subtle institutional amber (actual warnings, never brand background) */
+  --amber: #b45309;
+  --amber-muted: rgba(180, 83, 9, 0.08);
+
+  /* Violet reserved strictly for synthetic agent/harness errors */
+  --violet: #6d28d9;
+  --violet-muted: rgba(109, 40, 217, 0.08);
+
+  /* Shadows: Quiet Luxury (subtle material depth, zero blur fog) */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+
+  /* Geodesic Curvature Tiers */
+  --radius-primary: 20px;
+  --radius-secondary: 16px;
+  --radius-control: 12px;
+  --radius-tag: 999px;
 }
 
 [data-theme="dark"],
 .dark {
-  --canvas: #08090a;
-  --surface: #0f1011;
-  --surface-elevated: #1a1c20;
-  --surface-hover: #23252b;
-  --border: #23252b;
-  --border-muted: rgba(255, 255, 255, 0.08);
-  --border-strong: #2e3038;
-  --text-primary: #f1f1f2;
-  --text-secondary: #92949b;
-  --text-tertiary: #6b6c72;
-  --accent: #5e6ad2;
-  --accent-hover: #6b77e0;
-  --accent-muted: rgba(94, 106, 210, 0.16);
+  /* Canvas & Surface Layers */
+  --canvas: #090b0e;
+  --surface: #0d1116;
+  --surface-elevated: #121820;
+  --surface-hover: #1a222c;
+
+  /* Hairline Precision Borders */
+  --border: rgba(255, 255, 255, 0.06);
+  --border-muted: rgba(255, 255, 255, 0.04);
+  --border-strong: rgba(255, 255, 255, 0.09);
+
+  /* Editorial Typography Text Layers */
+  --text-primary: #edf3fa;
+  --text-secondary: #a8b5c4;
+  --text-tertiary: #657487;
+
+  /* Brand Accent: Technical Slate-Cobalt */
+  --accent: #8fc7ff;
+  --accent-hover: #b9ddff;
+  --accent-muted: rgba(98, 169, 232, 0.12);
+
+  /* Functional Semantics */
   --red: #f87171;
-  --red-muted: rgba(248, 113, 113, 0.1);
-  --green: #34d399;
-  --green-muted: rgba(52, 211, 153, 0.08);
-  --amber: #fbbf24;
-  --amber-muted: rgba(251, 191, 36, 0.1);
-  --violet: #a78bfa;
-  --violet-muted: rgba(167, 139, 250, 0.12);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --red-muted: rgba(248, 113, 113, 0.12);
+
+  --green: #72ddb0;
+  --green-muted: rgba(73, 183, 132, 0.1);
+  --success-surface: rgba(35, 116, 82, 0.14);
+  --success-border: rgba(93, 208, 153, 0.28);
+  --success-text: #a4efcc;
+  --success-icon: #68d7a5;
+
+  --amber: #f59e0b;
+  --amber-muted: rgba(245, 158, 11, 0.12);
+
+  --violet: #c1a5ff;
+  --violet-muted: rgba(161, 127, 232, 0.12);
+
+  /* Shadows: Crisp Dark Elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Geodesic Curvature Tiers */
+  --radius-primary: 20px;
+  --radius-secondary: 16px;
+  --radius-control: 12px;
+  --radius-tag: 999px;
 }
 
 @theme inline {
   --color-background: var(--canvas);
   --color-foreground: var(--text-primary);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-mono);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-code);
+  --font-serif: var(--font-editorial);
 }
 
 html {
@@ -74,7 +126,7 @@ html {
 body {
   background: var(--canvas);
   color: var(--text-primary);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 13px;
   line-height: 1.5;
   text-rendering: optimizeLegibility;
@@ -82,18 +134,24 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Monospace for technical */
-.font-mono {
-  font-family: var(--font-mono), ui-monospace, monospace;
+/* Typography Roles */
+.font-display {
+  font-family: var(--font-serif), "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
 }
 
-/* Hairline borders — Linear: subtle, never harsh */
+.font-mono {
+  font-family: var(--font-code);
+}
+
+/* Hairline borders — Swiss precision: crisp, never smudged */
 .border-hairline {
   border-width: 1px;
   border-color: var(--border-muted);
 }
 
-/* Focus — indigo accent */
+/* Focus — Clean cobalt ring */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -112,7 +170,7 @@ body {
   background: transparent;
 }
 
-/* Reduced motion */
+/* Reduced motion accessibility */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -122,13 +180,83 @@ body {
   }
 }
 
-/* Typography scale — tight tracking for headings */
+/* Headings scale */
 h1,
 h2 {
-  letter-spacing: -0.02em;
+  letter-spacing: -0.035em;
 }
 h3 {
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
 }
 
-/* Dense spacing — 4px base */
+/* Geodesic Surface & Curvature Language */
+.surface-geodesic-primary {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-geodesic-secondary {
+  background-color: var(--surface);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-studio {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.surface-elevated {
+  background-color: var(--surface-elevated);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-secondary);
+}
+
+.surface-card {
+  background-color: var(--surface);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.control-precise {
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.control-precise:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+  outline: none;
+}
+
+.control-input {
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.control-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-muted);
+  outline: none;
+}
+
+.badge-technical {
+  border-radius: var(--radius-tag);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

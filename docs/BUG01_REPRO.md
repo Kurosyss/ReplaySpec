@@ -17,7 +17,7 @@ Steps:
 3. **Fixed** → red "Postal code is required." visible, `aria-invalid=true` on input.
 4. **Buggy** → no visible error. Inspect DOM: `<p data-testid="postal-error" style="display:none">` exists but hidden. This is the intentional `display:none` defect.
 
-Fill postal code `94105` and submit again → "Order placed successfully." in both variants.
+Fill postal code `94105` and submit again → the demo validation passes in both variants. No order is placed and no payment is collected.
 
 ## Automated verification
 

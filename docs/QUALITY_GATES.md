@@ -45,3 +45,11 @@ For all three initial scenarios:
 - The complete input-to-verdict path works.
 - Failure states are handled honestly.
 - No mocked result is presented as an actual model or browser execution.
+
+## Final visual and judge review
+- Review every primary route, not only the home page: investigations list, each curated scenario, recording, evidence, specification, execution, new investigation, legal pages, loading, empty, and error states.
+- Inspect every recording frame at its rendered size. Confirm the full source image is visible, aspect ratio is preserved, and no important UI is clipped by the viewer or its surrounding layout. Flag clipping already present in source captures separately from viewer cropping.
+- Walk each scenario end-to-end in both buggy and fixed modes; confirm frame timestamps, observations, hypotheses, expected behaviour, and verdicts agree with the actual evidence.
+- Check navigation back to the home page and between investigation sections at desktop and narrow viewport widths.
+- Perform a judge-style pass for visual hierarchy, legibility, accessible contrast, responsive behaviour, product clarity, truthful AI/provider claims, and hackathon demo reliability. Fix material weaknesses before calling the submission ready.
+- Capture final README screenshots and the hero banner only after this review passes.

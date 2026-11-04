@@ -9,13 +9,16 @@ test.describe("Investigation list — /investigations", () => {
   test("shows investigations with verdict INCONCLUSIVE and navigates to detail", async ({ page }) => {
     await page.goto("/investigations");
     await expect(page.getByRole("heading", { name: "Investigations" })).toBeVisible();
+    await expect(page.getByText("3 Curated", { exact: true })).toBeVisible();
+    await expect(page.getByText("Muse Spark 1026", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Deterministic Oracle Active", { exact: true })).toHaveCount(0);
     // Wait for loading to settle, then check for either rows or empty state
     await expect(page.locator("text=Loading investigations…").first()).toBeHidden({ timeout: 10000 }).catch(() => {});
     const anyRow = page.locator('[data-testid^="investigation-row-"]').first();
     if (await anyRow.count() > 0) {
       await expect(anyRow).toBeVisible();
       await anyRow.click();
-      await expect(page).toHaveURL(/\/investigations\/.+/);
+      await expect(page).toHaveURL(/\/investigations\/.+/, { timeout: 15000 });
     } else {
       await expect(page.getByText("No investigations yet")).toBeVisible({ timeout: 5000 });
       await expect(page.getByTestId("new-investigation-button")).toBeVisible();
@@ -115,11 +118,16 @@ test.describe("Investigation detail — bug-01 studio", () => {
   });
 
   test("navigation works — LeftRail and TopBar", async ({ page }) => {
-    const backLink = page.getByRole("link", { name: "Back to investigations overview" });
-    await expect(backLink).toBeVisible();
-    await expect(backLink).toHaveAttribute("href", "/investigations");
-    await backLink.click();
-    await expect(page).toHaveURL(/\/investigations/);
+    const homeLink = page.getByRole("link", { name: "Back to ReplaySpec home" });
+    await expect(homeLink).toBeVisible();
+    await expect(homeLink).toHaveAttribute("href", "/");
+    await homeLink.click();
+    await expect(page).toHaveURL("/");
+    await page.goto("/investigations/bug-01");
+    const investigationsLink = page.getByRole("link", { name: /Investigations/ }).first();
+    await expect(investigationsLink).toHaveAttribute("href", "/investigations");
+    await investigationsLink.click();
+    await expect(page).toHaveURL(/\/investigations$/);
     await page.goto("/investigations/bug-01");
     await expect(page).toHaveURL(/\/investigations\/bug-01/);
     await expect(page.getByTestId("nav-recording")).toBeVisible();

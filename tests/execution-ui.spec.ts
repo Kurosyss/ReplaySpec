@@ -1,7 +1,14 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Execution UI — honest states", () => {
-  test.setTimeout(60_000);
+  test.setTimeout(240_000);
+
+  test.beforeAll(async ({ request }) => {
+    // Pre-warm demo routes so Next.js Turbopack compiler does not contend with background browser
+    await request.get("/demo/bug-01?variant=fixed");
+    await request.get("/demo/bug-01?variant=buggy");
+  });
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/investigations/bug-01");
   });
@@ -26,15 +33,15 @@ test.describe("Execution UI — honest states", () => {
     await expect(page.getByTestId("run-regression-button")).toBeDisabled();
 
     // Should NOT immediately show completed verdict before server responds
-    // Wait for actual completion (real execution takes 5-10s, allow 45s under load)
-    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 45000 });
+    // Wait for actual completion; browser startup and route compilation can take longer on Windows.
+    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 180000 });
     // Verdict must be one of the 4 real verdicts, not fake — check completed section contains verdict text
     await expect(page.getByTestId("execution-completed")).toContainText(/DEFECT_CONFIRMED|REGRESSION_VERIFIED|HARNESS_ERROR|INCONCLUSIVE/, { timeout: 5000 });
   });
 
   test("completed shows artifacts only for that run", async ({ page }) => {
     await page.getByTestId("run-regression-button").click();
-    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 45000 });
+    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 180000 });
 
     // Artifacts — poll for at least one artifact link (real execution may take a moment to persist)
     const firstArtifact = page.locator('[data-testid^="artifact-link-"]').first();
@@ -49,7 +56,7 @@ test.describe("Execution UI — honest states", () => {
   test("harness error visually distinct from defect (violet vs red)", async ({ page }) => {
     await page.selectOption('[data-testid="drawer-variant-select"]', "buggy");
     await page.getByTestId("run-regression-button").click();
-    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 45000 });
+    await expect(page.getByTestId("execution-completed")).toBeVisible({ timeout: 180000 });
     // Verify completed shows a verdict (real execution, not fabricated)
     await expect(page.getByTestId("execution-completed")).toContainText(/DEFECT_CONFIRMED|REGRESSION_VERIFIED|HARNESS_ERROR|INCONCLUSIVE/);
     // If HARNESS_ERROR, it must be violet distinct — never shown as red defect badge

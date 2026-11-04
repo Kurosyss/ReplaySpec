@@ -1,49 +1,139 @@
 "use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-type NavItem = { label: string; href: string; icon: string; activePrefix: string };
-const NAV: NavItem[] = [
-  { label: "Recording", href: "/investigations/bug-01", icon: "◧", activePrefix: "/investigations/bug-01$" },
-  { label: "Evidence", href: "/investigations/bug-01#evidence", icon: "≡", activePrefix: "evidence" },
-  { label: "Specification", href: "/investigations/bug-01#spec", icon: "⟐", activePrefix: "spec" },
-  { label: "Execution", href: "/investigations/bug-01#execution", icon: "▶", activePrefix: "execution" },
+
+type TabId = "recording" | "evidence" | "spec" | "execution";
+
+type NavItemConfig = {
+  id: TabId;
+  label: string;
+  icon: string;
+  desc: string;
+  navTestId: string;
+};
+
+const NAV_ITEMS: NavItemConfig[] = [
+  { id: "recording", label: "Recording", icon: "◧", desc: "Frames · Filmstrip", navTestId: "nav-recording" },
+  { id: "evidence", label: "Evidence", icon: "≡", desc: "Observations", navTestId: "nav-evidence" },
+  { id: "spec", label: "Specification", icon: "⟐", desc: "Assertions", navTestId: "nav-specification" },
+  { id: "execution", label: "Execution", icon: "▶", desc: "Verdict & Runs", navTestId: "nav-execution" },
 ];
-export function LeftRail() {
-  const pathname = usePathname();
+
+export type DetailRailProps = {
+  activeTab?: TabId;
+  onSelect?: (tab: TabId) => void;
+  title?: string;
+  bugId?: string;
+};
+
+export function DetailLeftRail({
+  activeTab = "recording",
+  onSelect = () => {},
+  title = "BUG-01 Investigation",
+  bugId = "BUG-01",
+}: DetailRailProps) {
   return (
-    <nav aria-label="Investigation sections" className="hidden w-[200px] shrink-0 flex-col border-r bg-[var(--surface)] py-4 lg:flex" style={{ borderColor: "var(--border-muted)" }}>
-      <div className="px-3 pb-3">
-        <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Workspace</p>
-        <p className="mt-1 text-[13px] font-medium leading-4 text-[var(--text-primary)]">BUG-01 Investigation</p>
-        <p className="font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">Checkout validation</p>
+    <nav
+      aria-label="Investigation sections"
+      className="hidden w-[200px] shrink-0 flex-col border-r bg-[var(--surface)] lg:flex"
+      style={{ borderColor: "var(--border-muted)" }}
+    >
+      {/* Workspace Header */}
+      <div className="border-b px-3.5 py-3.5" style={{ borderColor: "var(--border-muted)" }}>
+        <Link
+          href="/investigations"
+          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]"
+        >
+          <span aria-hidden="true">←</span> Investigations
+        </Link>
+        <h2
+          className="mt-2.5 truncate text-[13px] font-semibold leading-snug tracking-tight text-[var(--text-primary)]"
+          title={title}
+        >
+          {title}
+        </h2>
+        {bugId ? (
+          <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] text-[var(--text-tertiary)]">
+            <span className="rounded bg-[var(--surface-elevated)] px-1 py-0.2 text-[var(--text-secondary)]">
+              {bugId}
+            </span>
+            <span>· forensic</span>
+          </p>
+        ) : null}
       </div>
-      <ul className="flex flex-col gap-0.5 px-2">
-        {NAV.map((item) => {
-          const isActive = item.label === "Recording" ? pathname === "/investigations/bug-01" : pathname.includes(item.activePrefix) || false;
+
+      {/* Navigation items */}
+      <div className="flex flex-col gap-1 p-2">
+        {NAV_ITEMS.map((item) => {
+          const isActive = activeTab === item.id;
           return (
-            <li key={item.label}>
-              <Link
-                href={item.href}
-                data-testid={`nav-${item.label.toLowerCase()}`}
-                aria-current={isActive ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-[13px] leading-4 ${isActive ? "bg-[var(--surface-elevated)] font-medium text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onSelect(item.id)}
+              aria-current={isActive ? "page" : undefined}
+              className={`group flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                isActive
+                  ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+              }`}
+              style={{
+                border: isActive ? "1px solid var(--border-muted)" : "1px solid transparent",
+              }}
+            >
+              <span
+                data-testid={item.navTestId}
+                aria-hidden="true"
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-[12px] font-medium transition-colors ${
+                  isActive
+                    ? "bg-[var(--text-primary)] text-[var(--canvas)]"
+                    : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)] group-hover:text-[var(--text-primary)]"
+                }`}
               >
-                <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-[6px] text-[11px] ${isActive ? "bg-[var(--text-primary)] text-[var(--canvas)]" : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"}`}>
-                  {item.icon}
+                {item.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block text-[12px] leading-4 ${
+                    isActive ? "font-semibold text-[var(--text-primary)]" : "font-normal"
+                  }`}
+                >
+                  {item.label}
                 </span>
-                {item.label}
-              </Link>
-            </li>
+                <span className="block font-mono text-[10px] leading-3 text-[var(--text-tertiary)]">
+                  {item.desc}
+                </span>
+              </span>
+            </button>
           );
         })}
-      </ul>
-      <div className="mt-auto px-3 pt-4">
-        <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-          <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Target</p>
-          <p className="mt-1 font-mono text-[11px] font-medium leading-4 text-[var(--text-primary)]">/demo/bug-01</p>
-          <p className="font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">allowlisted · Chromium only</p>
-          <Link href="/demo/bug-01?variant=fixed" className="mt-2 inline-flex w-full justify-center rounded-[6px] bg-[var(--text-primary)] px-2 py-1.5 font-mono text-[11px] font-medium text-[var(--canvas)] hover:opacity-90">
-            Open target →
+      </div>
+
+      {/* Target Info Footer */}
+      <div className="mt-auto p-2.5">
+        <div
+          className="rounded-[6px] border bg-[var(--surface-elevated)] p-2.5 text-left"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[9px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+              Target
+            </span>
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--green)]" title="Target allowlisted" />
+          </div>
+          <p className="mt-1 font-mono text-[11px] font-medium text-[var(--text-primary)] truncate">
+            /demo/{bugId.toLowerCase()}
+          </p>
+          <p className="mt-0.5 font-mono text-[10px] text-[var(--text-tertiary)]">
+            allowlisted · Chromium
+          </p>
+          <Link
+            href={`/demo/${bugId.toLowerCase()}?variant=fixed`}
+            className="mt-2 inline-flex w-full items-center justify-center rounded-[5px] border bg-[var(--surface)] px-2 py-1 font-mono text-[10px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+            style={{ borderColor: "var(--border-muted)" }}
+          >
+            Open benchmark ↗
           </Link>
         </div>
       </div>
@@ -51,76 +141,60 @@ export function LeftRail() {
   );
 }
 
-type DetailRailProps = {
-  activeTab: "recording" | "evidence" | "spec" | "execution";
-  onSelect: (tab: "recording" | "evidence" | "spec" | "execution") => void;
-  title?: string;
-  bugId?: string;
-};
+// Backwards-compatible export for any component expecting LeftRail
+export function LeftRail(props: DetailRailProps) {
+  const pathname = usePathname();
+  const currentTab: TabId = pathname.includes("evidence")
+    ? "evidence"
+    : pathname.includes("spec")
+      ? "spec"
+      : pathname.includes("execution")
+        ? "execution"
+        : "recording";
 
-const DETAIL_NAV: Array<{ id: DetailRailProps["activeTab"]; label: string; icon: string; desc: string }> = [
-  { id: "recording", label: "Recording", icon: "◧", desc: "Frames · Filmstrip" },
-  { id: "evidence", label: "Evidence", icon: "≡", desc: "Observations" },
-  { id: "spec", label: "Specification", icon: "⟐", desc: "Assertions" },
-  { id: "execution", label: "Execution", icon: "▶", desc: "Verdict" },
-];
-
-export function DetailLeftRail({ activeTab, onSelect, title, bugId }: DetailRailProps) {
-  return (
-    <nav aria-label="Investigation workspace" className="hidden w-[220px] shrink-0 flex-col border-r bg-[var(--surface)] lg:flex" style={{ borderColor: "var(--border-muted)" }}>
-      <div className="px-4 py-4">
-        <Link href="/investigations" className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--text-tertiary)] hover:text-[var(--text-primary)]">
-          ← Investigations
-        </Link>
-        <h2 className="mt-3 text-[13px] font-semibold leading-4 text-[var(--text-primary)]" style={{ letterSpacing: "-0.015em" }}>
-          {title ?? "Investigation"}
-        </h2>
-        {bugId && <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">{bugId} · forensic</p>}
-      </div>
-      <div className="px-2">
-        {DETAIL_NAV.map((item) => {
-          const active = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSelect(item.id)}
-              data-testid={`detail-tab-${item.id}`}
-              aria-current={active ? "page" : undefined}
-              className={`flex w-full items-center gap-2.5 rounded-[8px] px-2.5 py-2 text-left transition-colors ${active ? "bg-[var(--surface-elevated)] text-[var(--text-primary)]" : "text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"}`}
-            >
-              <span
-                aria-hidden="true"
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] text-[13px] ${active ? "bg-[var(--text-primary)] text-[var(--canvas)]" : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"}`}
-              >
-                {item.icon}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className={`block text-[13px] leading-4 ${active ? "font-medium" : ""}`}>{item.label}</span>
-                <span className="block font-mono text-[11px] leading-3 text-[var(--text-tertiary)]">{item.desc}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      <div className="mt-auto px-3 pb-4 pt-4">
-        <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-          <p className="font-mono text-[10px] font-medium uppercase tracking-widest text-[var(--text-tertiary)]">Target</p>
-          <p className="mt-1 font-mono text-[11px] font-medium text-[var(--text-primary)]">/demo/bug-01</p>
-          <p className="font-mono text-[10px] leading-4 text-[var(--text-tertiary)]">allowlisted · Chromium</p>
-        </div>
-      </div>
-    </nav>
-  );
+  return <DetailLeftRail activeTab={props.activeTab ?? currentTab} {...props} />;
 }
-export function LeftRailMobile() {
+
+export function LeftRailMobile({
+  activeTab = "recording",
+  onSelect = () => {},
+}: {
+  activeTab?: TabId;
+  onSelect?: (tab: TabId) => void;
+}) {
   return (
-    <nav aria-label="Investigation sections mobile" className="flex items-center justify-around border-t bg-[var(--surface)] py-2 lg:hidden" style={{ borderColor: "var(--border-muted)" }}>
-      {NAV.map((item) => (
-        <Link key={item.label} href={item.href} className="flex flex-col items-center gap-1 px-2 py-1 text-[var(--text-tertiary)]">
-          <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center rounded-[6px] bg-[var(--surface-elevated)] font-mono text-[11px]">{item.icon}</span>
-          <span className="font-mono text-[10px] leading-none">{item.label}</span>
-        </Link>
-      ))}
+    <nav
+      aria-label="Investigation sections mobile"
+      className="flex items-center justify-around border-t bg-[var(--surface)] py-1.5 lg:hidden"
+      style={{ borderColor: "var(--border-muted)" }}
+    >
+      {NAV_ITEMS.map((item) => {
+        const isActive = activeTab === item.id;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onSelect(item.id)}
+            data-testid={`mobile-nav-${item.id}`}
+            aria-current={isActive ? "page" : undefined}
+            className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${
+              isActive ? "text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`flex h-6 w-6 items-center justify-center rounded-[5px] text-[11px] ${
+                isActive
+                  ? "bg-[var(--text-primary)] text-[var(--canvas)]"
+                  : "bg-[var(--surface-elevated)]"
+              }`}
+            >
+              {item.icon}
+            </span>
+            <span className="font-mono text-[9px] leading-tight">{item.label}</span>
+          </button>
+        );
+      })}
     </nav>
   );
 }

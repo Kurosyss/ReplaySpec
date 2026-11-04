@@ -65,9 +65,7 @@ test.describe("BUG-01 checkout postal-code validation", () => {
 
       await expect(page.getByTestId("postal-error")).toHaveCount(0);
       await expect(page.getByTestId("order-success")).toBeVisible();
-      await expect(page.getByTestId("order-success")).toContainText(
-        "Order placed"
-      );
+      await expect(page.getByTestId("order-success")).toContainText("No order was placed");
     });
 
     test("variant switcher navigates correctly", async ({ page }) => {

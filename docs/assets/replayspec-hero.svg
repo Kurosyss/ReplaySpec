@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="720" viewBox="0 0 1440 720" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">ReplaySpec: from browser frame to verified regression</title>
+  <desc id="desc">An editorial product illustration links a timestamped cart screenshot to an expected invariant and a Chromium defect verdict.</desc>
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#C8D0DD" fill-opacity=".38"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#16223A" flood-opacity=".10"/>
+    </filter>
+    <clipPath id="frameClip"><rect x="640" y="246" width="428" height="286" rx="13"/></clipPath>
+  </defs>
+
+  <rect width="1440" height="720" rx="28" fill="#F7F8FB"/>
+  <rect x="1" y="1" width="1438" height="718" rx="27" stroke="#E1E5EC"/>
+  <path d="M48 88H1392" stroke="#E0E5ED"/>
+
+  <!-- ReplaySpec mark and document masthead -->
+  <g transform="translate(54 34)">
+    <path d="M3 9.5 15 3l12 6.5v13L15 29 3 22.5v-13Z" stroke="#15223B" stroke-width="2"/>
+    <path d="M15 4v24M4 10l22 12M26 10 4 22" stroke="#2F68E8" stroke-width="1.6"/>
+    <circle cx="15" cy="16" r="2.5" fill="#2F68E8"/>
+    <text x="42" y="22" fill="#14213A" font-family="Geist, Inter, Arial, sans-serif" font-size="21" font-weight="650" letter-spacing="-.7">ReplaySpec</text>
+  </g>
+  <text x="1384" y="55" text-anchor="end" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" letter-spacing="1.2">EVIDENCE / REGRESSION / CHROMIUM</text>
+
+  <!-- Product thesis -->
+  <text x="58" y="177" fill="#2F68E8" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" font-weight="700" letter-spacing="2.1">BROWSER DEFECTS · PROVEN IN CONTEXT</text>
+  <text x="54" y="263" fill="#14213A" font-family="Geist, Inter, Arial, sans-serif" font-size="67" font-weight="590" letter-spacing="-4">From frame</text>
+  <text x="54" y="337" fill="#2F68E8" font-family="Georgia, 'Times New Roman', serif" font-size="72" font-weight="400" font-style="italic" letter-spacing="-3.2">to proof.</text>
+  <text x="58" y="401" fill="#4B5870" font-family="Geist, Inter, Arial, sans-serif" font-size="18">A browser recording becomes timestamped evidence,</text>
+  <text x="58" y="430" fill="#4B5870" font-family="Geist, Inter, Arial, sans-serif" font-size="18">a constrained regression check, and an inspectable</text>
+  <text x="58" y="459" fill="#4B5870" font-family="Geist, Inter, Arial, sans-serif" font-size="18">Chromium verdict.</text>
+
+  <g transform="translate(58 527)">
+    <rect width="182" height="35" rx="17.5" fill="#E8EEFF"/>
+    <circle cx="17" cy="17.5" r="4" fill="#2F68E8"/>
+    <text x="30" y="22" fill="#264C9F" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" letter-spacing=".25">FRAME-GROUNDED</text>
+    <rect x="194" width="150" height="35" rx="17.5" fill="#EEF1F5"/>
+    <text x="269" y="22" text-anchor="middle" fill="#4D5B72" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" letter-spacing=".25">CHROMIUM ONLY</text>
+  </g>
+
+  <!-- Evidence workbench: the timeline is the signature, connecting every claim to its source. -->
+  <g filter="url(#shadow)">
+    <rect x="568" y="122" width="814" height="538" rx="20" fill="#FFFFFF" stroke="#DDE3EC"/>
+    <path d="M568 174H1382" stroke="#E5E9F0"/>
+    <circle cx="598" cy="148" r="4" fill="#D84B52"/>
+    <text x="613" y="152" fill="#26344D" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" letter-spacing=".6">BUG-02 / CART COUNTER RACE</text>
+    <rect x="1197" y="135" width="158" height="27" rx="13.5" fill="#FFF0F0" stroke="#F3D3D4"/>
+    <text x="1276" y="153" text-anchor="middle" fill="#B63138" font-family="'JetBrains Mono', Consolas, monospace" font-size="10" font-weight="700" letter-spacing=".6">DEFECT CONFIRMED</text>
+  </g>
+
+  <!-- Captured frame -->
+  <rect x="611" y="203" width="468" height="382" rx="15" fill="#F8F9FC" stroke="#E1E6EE"/>
+  <text x="634" y="229" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="10" letter-spacing="1.1">RECORDING FRAME</text>
+  <rect x="950" y="213" width="105" height="23" rx="5" fill="#17233A"/>
+  <text x="1002.5" y="229" text-anchor="middle" fill="#FFFFFF" font-family="'JetBrains Mono', Consolas, monospace" font-size="10" font-weight="600">00:01.6</text>
+  <g clip-path="url(#frameClip)">
+    <rect x="640" y="246" width="428" height="286" rx="13" fill="#FFFFFF"/>
+    <path d="M640 286H1068" stroke="#E8EBF0"/>
+    <text x="662" y="271" fill="#1C2940" font-family="Geist, Inter, Arial, sans-serif" font-size="13" font-weight="700" letter-spacing=".5">MAISON</text>
+    <circle cx="756" cy="266" r="10" fill="#17233A"/>
+    <text x="756" y="270" text-anchor="middle" fill="#FFFFFF" font-family="'JetBrains Mono', Consolas, monospace" font-size="9">1</text>
+    <text x="773" y="270" fill="#38465D" font-family="Geist, Inter, Arial, sans-serif" font-size="11" font-weight="600">Bag</text>
+    <text x="662" y="315" fill="#8793A7" font-family="'JetBrains Mono', Consolas, monospace" font-size="9" letter-spacing="1">BUG-02 · EVIDENCE BENCHMARK</text>
+    <text x="662" y="337" fill="#1C2940" font-family="Geist, Inter, Arial, sans-serif" font-size="15" font-weight="650">Cart counter race</text>
+    <rect x="662" y="355" width="384" height="63" rx="9" fill="#EDF2FF" stroke="#DCE5FF"/>
+    <path d="M662 365v43" stroke="#2F68E8" stroke-width="3" stroke-linecap="round"/>
+    <text x="679" y="379" fill="#20375F" font-family="Geist, Inter, Arial, sans-serif" font-size="11" font-weight="650">Expected invariant</text>
+    <text x="679" y="398" fill="#4B5870" font-family="Geist, Inter, Arial, sans-serif" font-size="10.5">Two clicks must move quantity from 1 to 3.</text>
+    <text x="662" y="448" fill="#1C2940" font-family="Geist, Inter, Arial, sans-serif" font-size="13" font-weight="650">Bag contents</text>
+    <rect x="662" y="462" width="384" height="52" rx="10" fill="#F1F3F7" stroke="#E3E7EE"/>
+    <rect x="674" y="470" width="36" height="36" rx="7" fill="#E6E8EB"/>
+    <path d="M687 476h11l5 23h-19l3-23Zm1-3a4 4 0 0 1 8 0" stroke="#9A795B" stroke-width="1.7" stroke-linejoin="round"/>
+    <text x="720" y="484" fill="#1F2C43" font-family="Geist, Inter, Arial, sans-serif" font-size="11" font-weight="650">Wool Overcoat — Camel</text>
+    <text x="720" y="500" fill="#637087" font-family="Geist, Inter, Arial, sans-serif" font-size="9.5">Italian Virgin Wool · Size M</text>
+    <rect x="966" y="477" width="30" height="23" rx="5" fill="#FFFFFF" stroke="#DCE1E9"/>
+    <text x="981" y="493" text-anchor="middle" fill="#43516A" font-family="'JetBrains Mono', Consolas, monospace" font-size="11">−</text>
+    <rect x="1002" y="477" width="28" height="23" rx="5" fill="#FFFFFF" stroke="#DCE1E9"/>
+    <text x="1016" y="493" text-anchor="middle" fill="#17233A" font-family="'JetBrains Mono', Consolas, monospace" font-size="11" font-weight="700">2</text>
+  </g>
+  <text x="634" y="559" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="10">800 × 680 · source frame</text>
+
+  <!-- The evidence rail ties the frame to the expected statement and observed result. -->
+  <path d="M1098 246v306" stroke="#D5DDEA" stroke-width="2"/>
+  <circle cx="1098" cy="281" r="6" fill="#2F68E8" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="1098" cy="421" r="6" fill="#2F68E8" stroke="#FFFFFF" stroke-width="3"/>
+  <circle cx="1098" cy="552" r="6" fill="#D84B52" stroke="#FFFFFF" stroke-width="3"/>
+  <path d="M1104 281h22M1104 421h22M1104 552h22" stroke="#B9C6D9" stroke-width="1.5"/>
+
+  <rect x="1126" y="235" width="226" height="102" rx="12" fill="#FFFFFF" stroke="#E1E6EE"/>
+  <text x="1144" y="259" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5" letter-spacing=".9">OBSERVED · FRAME-LINKED</text>
+  <text x="1144" y="285" fill="#26344D" font-family="Geist, Inter, Arial, sans-serif" font-size="12" font-weight="600">Quantity is 2 after</text>
+  <text x="1144" y="303" fill="#26344D" font-family="Geist, Inter, Arial, sans-serif" font-size="12" font-weight="600">two rapid increments.</text>
+  <text x="1144" y="322" fill="#2F68E8" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5">Inspect frame →</text>
+
+  <rect x="1126" y="374" width="226" height="96" rx="12" fill="#FFFFFF" stroke="#E1E6EE"/>
+  <text x="1144" y="398" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5" letter-spacing=".9">EXPECTED</text>
+  <text x="1144" y="424" fill="#26344D" font-family="Geist, Inter, Arial, sans-serif" font-size="12" font-weight="600">Quantity must reach 3.</text>
+  <text x="1144" y="449" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5">Preserved from investigator</text>
+
+  <rect x="1126" y="505" width="226" height="95" rx="12" fill="#FFF8F8" stroke="#F0D7D8"/>
+  <text x="1144" y="529" fill="#B63138" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5" font-weight="700" letter-spacing=".8">CHROMIUM VERDICT</text>
+  <text x="1144" y="555" fill="#26344D" font-family="Geist, Inter, Arial, sans-serif" font-size="12" font-weight="650">DEFECT_CONFIRMED</text>
+  <text x="1144" y="578" fill="#637087" font-family="'JetBrains Mono', Consolas, monospace" font-size="9.5">Screenshot · trace · video</text>
+
+  <path d="M58 629H1382" stroke="#E0E5ED"/>
+  <text x="58" y="661" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="10.5" letter-spacing=".7">OBSERVATION ≠ EXPECTATION ≠ HYPOTHESIS</text>
+  <text x="1382" y="661" text-anchor="end" fill="#71809A" font-family="'JetBrains Mono', Consolas, monospace" font-size="10.5" letter-spacing=".7">EACH CLAIM RETAINS ITS SOURCE</text>
+</svg>

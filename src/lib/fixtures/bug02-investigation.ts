@@ -1,0 +1,110 @@
+import type { EvidenceBundle, FrameEvidence } from "../evidence";
+
+export const bug02Frames: FrameEvidence[] = [
+  {
+    frameId: "frame-00-00-5",
+    timestamp: "00:00.5",
+    timestampSeconds: 0.5,
+    file: "/demo/bug-02/frames/bug02-start.png",
+    format: "png",
+    width: 800,
+    height: 680,
+    bytes: 60367,
+    mimeType: "image/png",
+    sourceVideo: "BUG-02 browser reproduction capture",
+  },
+  {
+    frameId: "frame-00-01-0",
+    timestamp: "00:01.0",
+    timestampSeconds: 1.0,
+    file: "/demo/bug-02/frames/bug02-first-click.png",
+    format: "png",
+    width: 800,
+    height: 680,
+    bytes: 61283,
+    mimeType: "image/png",
+    sourceVideo: "BUG-02 browser reproduction capture",
+  },
+  {
+    frameId: "frame-00-01-6",
+    timestamp: "00:01.6",
+    timestampSeconds: 1.6,
+    file: "/demo/bug-02/frames/bug02-rapid-clicks.png",
+    format: "png",
+    width: 800,
+    height: 680,
+    bytes: 64235,
+    mimeType: "image/png",
+    sourceVideo: "BUG-02 browser reproduction capture",
+  },
+];
+
+export const bug02Investigation: EvidenceBundle = {
+  sourceVideo: "BUG-02 buggy-variant browser capture",
+  frames: bug02Frames,
+  observations: [
+    {
+      kind: "observation",
+      id: "obs-1",
+      frameId: "frame-00-00-5",
+      timestamp: "00:00.5",
+      timestampSeconds: 0.5,
+      statement: "At 00:00.5, cart summary displays initial item quantity '1' with unit price '$248.00'. Increment button '+' is enabled and visible.",
+      confidence: "high",
+      sourceFrameFile: "/demo/bug-02/frames/bug02-start.png",
+    },
+    {
+      kind: "observation",
+      id: "obs-2",
+      frameId: "frame-00-01-0",
+      timestamp: "00:01.0",
+      timestampSeconds: 1.0,
+      statement: "At 00:01.0, after the first increment click, the cart summary displays quantity '2'.",
+      confidence: "high",
+      sourceFrameFile: "/demo/bug-02/frames/bug02-first-click.png",
+    },
+    {
+      kind: "observation",
+      id: "obs-3",
+      frameId: "frame-00-01-6",
+      timestamp: "00:01.6",
+      timestampSeconds: 1.6,
+      statement: "At 00:01.6, after two rapid clicks, the captured buggy cart displays quantity '2'; the expected quantity is '3'.",
+      confidence: "high",
+      sourceFrameFile: "/demo/bug-02/frames/bug02-rapid-clicks.png",
+    },
+  ],
+  expectedBehaviours: [
+    {
+      kind: "expected",
+      id: "exp-1",
+      statement: "Two consecutive cart increment clicks must increase quantity from 1 to 3.",
+      rawUserInput: "Two consecutive cart increment clicks must increase quantity from 1 to 3.",
+    },
+  ],
+  hypotheses: [
+    {
+      kind: "hypothesis",
+      id: "hyp-1",
+      statement: "Buggy variant mutates cart quantity reading stale closure state rather than using functional state updater setQuantity(q => q + 1).",
+      confidence: "high",
+      inferredFrom: ["obs-2", "obs-3"],
+    },
+    {
+      kind: "hypothesis",
+      id: "hyp-2",
+      statement: "The fixed variant should preserve both increments with an atomic state update; verify it with the execution run.",
+      confidence: "high",
+      inferredFrom: ["obs-3", "exp-1"],
+    },
+  ],
+  ambiguities: [
+    {
+      kind: "ambiguity",
+      id: "amb-1",
+      statement: "Network latency and debounce interval cannot be measured purely from screen frames; requires inspecting request timeline.",
+      missingInfo: "Network HAR log",
+      affects: ["obs-2", "obs-3"],
+    },
+  ],
+};

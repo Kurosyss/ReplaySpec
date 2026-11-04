@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { bug01Investigation } from "@/lib/fixtures/bug01-investigation";
+import { normalizeFrameTimestamps } from "@/lib/frames/extractor";
 
 async function waitForRun(request: any, runId: string, timeoutSec = 30) {
   for (let i = 0; i < timeoutSec; i++) {
@@ -14,6 +15,22 @@ async function waitForRun(request: any, runId: string, timeoutSec = 30) {
 }
 
 test.describe("Frame extraction — timestamped frames (6 tests)", () => {
+  test("rounds seek positions consistently and removes frame ID collisions", async () => {
+    const normalized = normalizeFrameTimestamps([
+      { t: 0.5, label: "ignored" },
+      { t: 0.525, label: "ignored" },
+      { t: 0.85, label: "ignored" },
+      { t: 1.275, label: "ignored" },
+    ], 1.5);
+
+    expect(normalized).toEqual([
+      { t: 0.5, label: "00:00.5" },
+      { t: 0.9, label: "00:00.9" },
+      { t: 1.3, label: "00:01.3" },
+    ]);
+    expect(new Set(normalized.map(({ label }) => label)).size).toBe(normalized.length);
+  });
+
   test("chronological timestamp ordering", async () => {
     // Deterministic synthetic fixture — no run creation, no ffmpeg contention
     const frames = bug01Investigation.frames;

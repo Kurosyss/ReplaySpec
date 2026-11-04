@@ -1,39 +1,68 @@
 import { test, expect } from "@playwright/test";
+import { getModelProviderConfig } from "../src/lib/muse/provider";
 
-test.describe("Muse integration — server-only credentials and validation (8 tests)", () => {
-  test("exact model ID is meta-models/muse-spark-open-1026", async () => {
-    // Verify the model ID is correctly configured in the codebase
-    const fs = await import("node:fs");
-    const content = fs.readFileSync("src/app/api/recordings/[id]/analyze/route.ts", "utf8");
-    expect(content).toContain("meta-models/muse-spark-open-1026");
-    expect(content).not.toContain("gpt-4");
-    expect(content).not.toContain("claude");
+test.describe("Model provider integration — provider config and validation", () => {
+  test("defaults to the Groq vision model without exposing credentials", () => {
+    const config = getModelProviderConfig({});
+    expect(config.provider).toBe("groq");
+    expect(config.model).toBe("qwen/qwen3.8-27b");
+    expect(config.maxImages).toBe(3);
+    expect(config.configured).toBe(false);
+    expect(config.liveAnalysisEnabled).toBe(false);
+    expect(JSON.stringify(config)).not.toContain("sk-");
+  });
+
+  test("live analysis requires an explicit server-side opt-in", () => {
+    const locked = getModelProviderConfig({ MODEL_PROVIDER: "groq", GROQ_API_KEY: "test-secret" });
+    const enabled = getModelProviderConfig({ MODEL_PROVIDER: "groq", GROQ_API_KEY: "test-secret", REPLAYSPEC_LIVE_ANALYSIS: "true" });
+    expect(locked.configured).toBe(true);
+    expect(locked.liveAnalysisEnabled).toBe(false);
+    expect(enabled.liveAnalysisEnabled).toBe(true);
+  });
+
+  test("supports provider selection while keeping credentials server-side", () => {
+    const config = getModelProviderConfig({ MODEL_PROVIDER: "openrouter", OPENROUTER_API_KEY: "test-secret" });
+    expect(config.provider).toBe("openrouter");
+    expect(config.model).toBe("openrouter/free");
+    expect(config.maxImages).toBe(3);
+    expect(config.pricingUrl).toBe("https://openrouter.ai/openrouter/free");
+    expect(config.configured).toBe(true);
+    expect(config.apiKey).toBe("test-secret");
+  });
+
+  test("reports missing Cloudflare account and token as not configured", () => {
+    const config = getModelProviderConfig({ MODEL_PROVIDER: "cloudflare", CLOUDFLARE_API_TOKEN: "test-secret" });
+    expect(config.provider).toBe("cloudflare");
+    expect(config.configured).toBe(false);
+  });
+
+  test("rejects unknown providers rather than guessing an endpoint", () => {
+    const config = getModelProviderConfig({ MODEL_PROVIDER: "unknown" });
+    expect(config.provider).toBeNull();
+    expect(config.configured).toBe(false);
   });
 
   test("server-only credentials never in browser artifacts", async ({ request, page }) => {
-    // Check that the New investigation page doesn't expose BASETEN_API_KEY
-    await page.goto("/investigations/new");
+    // Check that the New investigation page doesn't expose credentials or their values.
+    await page.goto("/investigations/new", { waitUntil: "domcontentloaded" });
     const html = await page.content();
-    expect(html).not.toContain("BASETEN_API_KEY");
     expect(html).not.toContain("sk-");
-    expect(html).not.toContain("Baseten");
+    expect(html).not.toContain("test-secret");
 
-    // Check that model-response.json is sanitized and doesn't contain credentials
-    const runRes = await request.post("/api/runs", { data: { variant: "fixed" } });
-    const { runId } = await runRes.json();
-    // At least verify the investigations API doesn't leak credentials
-    const invRes = await request.post("/api/investigations", { data: { runId } }).catch(() => null);
-    if (invRes && invRes.ok()) {
-      const invData = await invRes.json();
-      expect(JSON.stringify(invData)).not.toContain("BASETEN_API_KEY");
-    }
+    const statusResponse = await request.get("/api/model/status");
+    const statusData = await statusResponse.json();
+    expect(statusResponse.ok()).toBeTruthy();
+    expect(statusData).not.toHaveProperty("apiKey");
+    expect(JSON.stringify(statusData)).not.toContain("sk-");
+    expect(JSON.stringify(statusData)).not.toContain("test-secret");
   });
 
-  test("actual Muse request handling through controlled mock for normal tests", async ({ request }) => {
+  test("actual model request handling through controlled mock for normal tests", async ({ request }) => {
+    test.setTimeout(30000);
     // Normal automated tests should not consume Baseten credits — they use mocked evidence
     // Verify that the analyze endpoint exists and would handle a request
     const fakeId = "nonexistent-recording-id";
-    const res = await request.post(`/api/recordings/${fakeId}/analyze`);
+    const res = await request.post(`/api/recordings/${fakeId}/analyze`, { timeout: 25000 });
     expect([404, 422, 500].includes(res.status())).toBeTruthy();
   });
 
@@ -42,13 +71,13 @@ test.describe("Muse integration — server-only credentials and validation (8 te
     expect(true).toBe(true);
   });
 
-  test("truncated response handling - finish_reason length", async ({ request }) => {
+  test("truncated response handling - finish_reason length", async () => {
     // The analyze route should handle truncated responses honestly
     // We verify the error handling exists in the code
     const fs = await import("node:fs");
     const content = fs.readFileSync("src/app/api/recordings/[id]/analyze/route.ts", "utf8");
     expect(content).toContain('finishReason === "length"');
-    expect(content).toContain("Muse response truncated");
+    expect(content).toContain("Model response truncated");
   });
 
   test("invalid provenance rejected", async () => {
@@ -62,9 +91,7 @@ test.describe("Muse integration — server-only credentials and validation (8 te
       ambiguities: [],
     };
     const result = EvidenceBundleSchema.safeParse(invalidBundle);
-    // Should fail or the provenance should be validated
-    // Our current schema makes provenance optional, so it would pass — but we test the concept
-    expect(true).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   test("hypothesis/observation separation enforced", async () => {
@@ -86,8 +113,8 @@ test.describe("Muse integration — server-only credentials and validation (8 te
     // Verify no retry loop like for (let i=0; i<3; i++) fetch
     expect(content).not.toMatch(/for\s*\(.*retry/i);
     expect(content).not.toMatch(/while.*retry/i);
-    // Should have single fetch to Baseten
+    // Should have a single provider request.
     const fetchCount = (content.match(/fetch\(/g) || []).length;
-    expect(fetchCount).toBeLessThanOrEqual(2); // One for Muse, maybe one other
+    expect(fetchCount).toBeLessThanOrEqual(2); // One provider request, maybe one other
   });
 });

@@ -5,15 +5,15 @@ import { test, expect } from "@playwright/test";
  * Verifies Linear tokens actually affect rendered elements
  */
 test.describe("Visual acceptance — computed styles", () => {
-  test("body uses Inter, not mono, and canvas resolves", async ({ page }) => {
+  test("body uses Geist Sans, not mono, and canvas resolves", async ({ page }) => {
     await page.goto("/investigations", { waitUntil: "networkidle" });
     const bodyFont = await page.evaluate(() => getComputedStyle(document.body).fontFamily);
-    expect(bodyFont.toLowerCase()).toContain("inter");
-    expect(bodyFont.toLowerCase()).not.toMatch(/jetbrains.*inter/); // not mono as primary
+    expect(bodyFont.toLowerCase()).toContain("geist");
+    expect(bodyFont.toLowerCase()).not.toContain("jetbrains"); // not mono as primary
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(bg).not.toBe("rgba(0, 0, 0, 0)");
     const canvas = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--canvas").trim().toLowerCase());
-    expect(["#ffffff", "#fff", "#08090a"].includes(canvas)).toBeTruthy();
+    expect(["#ffffff", "#fff", "#090b0e"].includes(canvas)).toBeTruthy();
   });
 
   test("monospace metadata uses JetBrains Mono", async ({ page }) => {
@@ -65,6 +65,63 @@ test.describe("Visual acceptance — computed styles", () => {
     expect(meta).toContain("800×450");
     const img = await page.getByTestId("frame-viewer-image");
     await expect(img).toBeVisible();
+    const imageFit = await img.evaluate((element) => {
+      const image = element.getBoundingClientRect();
+      const stage = element.parentElement!.getBoundingClientRect();
+      return {
+        widthRatio: image.width / stage.width,
+        heightRatio: image.height / stage.height,
+        stageBackground: getComputedStyle(element.parentElement!).backgroundColor,
+      };
+    });
+    expect(imageFit.widthRatio).toBeGreaterThan(0.98);
+    expect(imageFit.heightRatio).toBeGreaterThan(0.98);
+    expect(imageFit.stageBackground).not.toBe("rgb(8, 12, 17)");
+  });
+
+  test("BUG-02 evidence frame uses its full captured dimensions", async ({ page }) => {
+    await page.goto("/investigations/bug-02", { waitUntil: "networkidle" });
+    await expect(page.getByTestId("active-frame-meta")).toContainText("800×680");
+    const img = page.getByTestId("frame-viewer-image");
+    await expect(img).toBeVisible();
+    const dimensions = await img.evaluate((element: HTMLImageElement) => {
+      const image = element.getBoundingClientRect();
+      const stage = element.parentElement!.getBoundingClientRect();
+      return {
+        naturalWidth: element.naturalWidth,
+        naturalHeight: element.naturalHeight,
+        widthRatio: image.width / stage.width,
+        heightRatio: image.height / stage.height,
+      };
+    });
+    expect(dimensions.naturalWidth).toBe(800);
+    expect(dimensions.naturalHeight).toBe(680);
+    expect(dimensions.widthRatio).toBeGreaterThan(0.98);
+    expect(dimensions.heightRatio).toBeGreaterThan(0.98);
+  });
+
+  test("BUG-03 evidence frame keeps the entire cancel modal visible", async ({ page }) => {
+    await page.goto("/investigations/bug-03", { waitUntil: "networkidle" });
+    await expect(page.getByTestId("active-frame-meta")).toContainText("800×800");
+    const img = page.getByTestId("frame-viewer-image");
+    await expect(img).toBeVisible();
+    const dimensions = await img.evaluate((element: HTMLImageElement) => {
+      const image = element.getBoundingClientRect();
+      const stage = element.parentElement!.getBoundingClientRect();
+      return {
+        naturalWidth: element.naturalWidth,
+        naturalHeight: element.naturalHeight,
+        widthRatio: image.width / stage.width,
+        heightRatio: image.height / stage.height,
+      };
+    });
+    expect(dimensions.naturalWidth).toBe(800);
+    expect(dimensions.naturalHeight).toBe(800);
+    expect(dimensions.widthRatio).toBeGreaterThan(0.98);
+    expect(dimensions.heightRatio).toBeGreaterThan(0.98);
+    await page.getByTestId("frame-next").click();
+    await expect(page.getByTestId("active-timestamp")).toContainText("00:01.1");
+    await expect(page.getByTestId("frame-viewer-image")).toHaveAttribute("src", /bug03-cancel-blocked\.png$/);
   });
 
   test("checkout columns and order summary placement", async ({ page }) => {
@@ -105,7 +162,7 @@ test.describe("Visual acceptance — computed styles", () => {
     });
     await page.reload();
     const darkCanvas = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--canvas").trim().toLowerCase());
-    expect(darkCanvas).toBe("#08090a");
+    expect(darkCanvas).toBe("#090b0e");
     await page.evaluate(() => {
       localStorage.setItem("replayspec-theme", "light");
       document.documentElement.setAttribute("data-theme", "light");

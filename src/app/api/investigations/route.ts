@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { listInvestigations, getInvestigation, saveInvestigation } from "@/lib/investigations/store";
+import { listInvestigations, saveInvestigation } from "@/lib/investigations/store";
 import { getRunResult } from "@/lib/runs/runner";
 import fs from "node:fs";
 import path from "node:path";
@@ -40,12 +40,20 @@ export async function POST(req: NextRequest) {
   if (run.status !== "completed" || !run.verdict) {
     return NextResponse.json({ error: "Run not completed or missing verdict" }, { status: 422 });
   }
+  if (run.bugId && run.bugId !== "BUG-01") {
+    return NextResponse.json({ error: "Evidence analysis from runs is currently available for BUG-01 only" }, { status: 422 });
+  }
 
   // Check for frames in run directory
   const runFramesDir = path.join(process.cwd(), "test-results", "runs", runId, "frames");
   const runFramesManifest = path.join(runFramesDir, "manifest.json");
   let frames: EvidenceBundle["frames"] = [];
   let sourceVideo: string | null = null;
+
+  // If run just completed, wait up to 6 seconds for frames manifest to finalize
+  for (let i = 0; i < 24 && !fs.existsSync(runFramesManifest); i++) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
 
   if (fs.existsSync(runFramesManifest)) {
     try {
@@ -260,10 +268,6 @@ export async function POST(req: NextRequest) {
   try {
     const invFramesDir = path.join(process.cwd(), "test-results", "investigations", id, "frames");
     for (const frame of frames) {
-      const src = path.join(process.cwd(), frame.file);
-      // frame.file is like "frames/frame-00-00-8.png" relative to run dir, but we need to resolve
-      // Actually frames from manifest have file like "frames/frame-00-00-8.png" relative to run dir
-      // So src should be path.join(runFramesDir, basename)
       const srcFile = path.join(runFramesDir, path.basename(frame.file));
       const destFile = path.join(invFramesDir, path.basename(frame.file));
       if (fs.existsSync(srcFile) && !fs.existsSync(destFile)) {

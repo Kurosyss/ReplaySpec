@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
 import { isAllowedUrl } from "../allowlist";
-import type { RunResult, Verdict } from "./types";
+import type { BugId, RunResult, Verdict } from "./types";
 import { mapBug01ToVerdict } from "./verdict";
-import { extractFramesFromVideo } from "../frames/extractor";
+import { extractFramesFromVideoAsync } from "../frames/extractor";
 
 const RUNS_ROOT = path.join(/* turbopackIgnore: true */ process.cwd(), "test-results", "runs");
 
@@ -28,7 +28,7 @@ function safeFileName(name: string) {
  * persists screenshot, trace.zip, video.webm outside public/, returns typed result.
  * Does NOT accept arbitrary URLs, shell commands, or user-supplied scripts.
  */
-export function createPendingRun(opts: { variant: "buggy" | "fixed"; target: string }): RunResult {
+export function createPendingRun(opts: { bugId: BugId; variant: "buggy" | "fixed"; target: string }): RunResult {
   ensureRunsRoot();
   const runId = generateRunId();
   const runDir = path.join(RUNS_ROOT, runId);
@@ -36,6 +36,7 @@ export function createPendingRun(opts: { variant: "buggy" | "fixed"; target: str
   const startedAt = new Date().toISOString();
   const pending: RunResult = {
     runId,
+    bugId: opts.bugId,
     variant: opts.variant,
     target: opts.target,
     status: "running",
@@ -51,7 +52,7 @@ export function createPendingRun(opts: { variant: "buggy" | "fixed"; target: str
   return pending;
 }
 
-export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; target: string; runId?: string }): Promise<RunResult> {
+export async function runScenario(opts: { bugId: BugId; variant: "buggy" | "fixed"; target: string; runId?: string }): Promise<RunResult> {
   ensureRunsRoot();
   const runId = opts.runId ?? generateRunId();
   const runDir = path.join(RUNS_ROOT, runId);
@@ -76,6 +77,28 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
     log(`HARNESS_ERROR: ${err}`);
     return {
       runId,
+      bugId: opts.bugId,
+      variant: opts.variant,
+      target: opts.target,
+      status: "failed",
+      verdict: "HARNESS_ERROR",
+      startedAt,
+      completedAt: new Date().toISOString(),
+      durationMs: Date.now() - new Date(startedAt).getTime(),
+      error: err,
+      artifacts: [],
+      logs,
+    };
+  }
+
+  const expectedPath = `/demo/${opts.bugId.toLowerCase()}`;
+  const targetUrl = new URL(opts.target);
+  if (targetUrl.pathname !== expectedPath || targetUrl.searchParams.get("variant") !== opts.variant) {
+    const err = "Target does not match the selected bundled scenario and variant";
+    log(`HARNESS_ERROR: ${err}`);
+    return {
+      runId,
+      bugId: opts.bugId,
       variant: opts.variant,
       target: opts.target,
       status: "failed",
@@ -96,24 +119,36 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
   let errorHidden: boolean | null = null;
   let errorTextCorrect: boolean | null = null;
   let successVisibleAfterFill: boolean | null = null;
+  let observedDefect = false;
+  let fixedBehaviourVerified = false;
 
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   let context: Awaited<ReturnType<Awaited<ReturnType<typeof chromium.launch>>["newContext"]>> | null = null;
+  let result: RunResult | null = null;
 
   try {
     browser = await chromium.launch();
     context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
-      recordVideo: { dir: runDir, size: { width: 1280, height: 720 } },
+      recordVideo: { dir: runDir, size: { width: 960, height: 540 } },
     });
 
-    await context.tracing.start({ screenshots: true, snapshots: true });
+    await context.tracing.start({ screenshots: false, snapshots: false, sources: false });
 
     const page = await context.newPage();
 
     // Navigate to allowlisted target
     log(`Navigating to ${opts.target}`);
-    await page.goto(opts.target, { waitUntil: "domcontentloaded", timeout: 10000 });
+    await page.goto(opts.target, { waitUntil: "networkidle", timeout: 45000 });
+    const readySelector = opts.bugId === "BUG-01"
+      ? "checkout-form"
+      : opts.bugId === "BUG-02"
+        ? "cart-counter-card"
+        : "modal-container";
+    await page.getByTestId(readySelector).waitFor({ state: "visible", timeout: 8000 });
+    if (opts.bugId === "BUG-02") {
+      await page.locator('[data-testid="cart-counter-card"][data-interactive="true"]').waitFor({ state: "visible", timeout: 8000 });
+    }
     log(`Navigated, URL: ${page.url()}`);
 
     // Verify we are still on allowlisted origin (no redirect to external)
@@ -121,22 +156,22 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
       throw new Error(`Post-navigation URL not allowlisted: ${page.url()}`);
     }
 
-    // Fill other fields, explicitly clear postal, assert empty precondition
-    await page.getByTestId("checkout-name-input").fill("Jane Doe");
-    await page.getByTestId("checkout-address-input").fill("123 Market St");
-    await page.getByTestId("checkout-city-input").fill("San Francisco");
-    await page.getByTestId("postal-code-input").fill("");
-    const isEmpty = await page.getByTestId("postal-code-input").inputValue().then((v: string) => v === "");
-    log(`Postal empty precondition: ${isEmpty}`);
-    if (!isEmpty) throw new Error("Postal precondition failed: field not empty after fill('')");
+    if (opts.bugId === "BUG-01") {
+      // Fill fields, explicitly clear postal, and assert the empty precondition.
+      await page.getByTestId("checkout-name-input").fill("Jane Doe");
+      await page.getByTestId("checkout-address-input").fill("123 Market St");
+      await page.getByTestId("checkout-city-input").fill("San Francisco");
+      await page.getByTestId("postal-code-input").fill("");
+      const isEmpty = await page.getByTestId("postal-code-input").inputValue().then((v: string) => v === "");
+      log(`Postal empty precondition: ${isEmpty}`);
+      if (!isEmpty) throw new Error("Postal precondition failed: field not empty after fill('')");
 
-    await page.getByTestId("checkout-submit").click();
-    log(`Clicked submit with empty postal`);
+      await page.getByTestId("checkout-submit").click();
+      log("Clicked submit with empty postal");
 
-    // Verify DOM per variant
-    if (opts.variant === "fixed") {
+      if (opts.variant === "fixed") {
       // Fixed should show visible error
-      await page.getByTestId("postal-error").waitFor({ state: "visible", timeout: 3000 });
+      await page.getByTestId("postal-error").waitFor({ state: "visible", timeout: 8000 });
       errorVisible = await page.getByTestId("postal-error").isVisible();
       errorTextCorrect = (await page.getByTestId("postal-error").textContent())?.trim() === "Postal code is required.";
       log(`Fixed: errorVisible=${errorVisible} errorTextCorrect=${errorTextCorrect}`);
@@ -146,20 +181,67 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
       // Then correct and verify success
       await page.getByTestId("postal-code-input").fill("94105");
       await page.getByTestId("checkout-submit").click();
-      await page.getByTestId("order-success").waitFor({ state: "visible", timeout: 3000 });
+      await page.getByTestId("order-success").waitFor({ state: "visible", timeout: 8000 });
       successVisibleAfterFill = await page.getByTestId("order-success").isVisible();
       log(`Fixed: successVisibleAfterFill=${successVisibleAfterFill}`);
+        fixedBehaviourVerified = errorVisible === true && errorTextCorrect === true && successVisibleAfterFill === true;
+      } else {
+      // Buggy: the required feedback may be hidden or omitted entirely. Either way,
+      // the user cannot see the expected error; record whether the node existed.
+      const postalError = page.getByTestId("postal-error");
+      const errorCount = await postalError.count();
+      if (errorCount === 0) {
+        errorHidden = true;
+        errorTextCorrect = false;
+        errorVisible = false;
+        log("Buggy: required postal error is absent from the DOM after empty submission");
+      } else {
+        await postalError.waitFor({ state: "hidden", timeout: 8000 });
+        errorHidden = await postalError.isHidden();
+        const txt = await postalError.textContent();
+        errorTextCorrect = txt?.trim() === "Postal code is required.";
+        errorVisible = await postalError.isVisible();
+        log(`Buggy: errorHidden=${errorHidden} errorVisible=${errorVisible} errorTextCorrect=${errorTextCorrect}`);
+        await postalError.waitFor({ state: "hidden", timeout: 500 });
+      }
+        observedDefect = errorHidden === true;
+      }
+    } else if (opts.bugId === "BUG-02") {
+      const quantity = page.getByTestId("cart-quantity");
+      if ((await quantity.textContent())?.trim() !== "1") {
+        throw new Error("Cart quantity precondition failed: expected 1");
+      }
+
+      const increment = page.getByTestId("cart-increment");
+      await increment.scrollIntoViewIfNeeded();
+      const box = await increment.boundingBox();
+      if (!box) throw new Error("Cart increment control is not available");
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.locator('[data-testid="order-success"], [data-testid="cart-race-detected"]').waitFor({ state: "visible", timeout: 5000 });
+      await page.getByTestId("cart-sync-status").getByText("2 increment clicks registered").waitFor({ state: "visible", timeout: 3000 });
+
+      const finalQuantity = Number((await quantity.textContent())?.trim());
+      log(`Cart invariant: initial=1 final=${finalQuantity} after two rapid clicks`);
+      observedDefect = finalQuantity !== 3;
+      fixedBehaviourVerified = finalQuantity === 3;
     } else {
-      // Buggy: error hidden
-      await page.getByTestId("postal-error").waitFor({ state: "hidden", timeout: 3000 });
-      errorHidden = await page.getByTestId("postal-error").isHidden();
-      // Text still correct even when hidden (DOM)
-      const txt = await page.getByTestId("postal-error").textContent();
-      errorTextCorrect = txt?.trim() === "Postal code is required.";
-      errorVisible = await page.getByTestId("postal-error").isVisible();
-      log(`Buggy: errorHidden=${errorHidden} errorVisible=${errorVisible} errorTextCorrect=${errorTextCorrect}`);
-      // Hold
-      await page.getByTestId("postal-error").waitFor({ state: "hidden", timeout: 500 });
+      const cancel = page.getByTestId("modal-cancel-btn");
+      await cancel.scrollIntoViewIfNeeded();
+      const box = await cancel.boundingBox();
+      if (!box) throw new Error("Modal Cancel control is not available");
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      if (opts.variant === "buggy") {
+        await page.getByTestId("modal-click-blocked-alert").waitFor({ state: "visible", timeout: 3000 });
+      } else {
+        await page.getByTestId("modal-dismissed-alert").waitFor({ state: "visible", timeout: 3000 });
+      }
+
+      const dialogRemainsOpen = await page.getByTestId("modal-container").isVisible();
+      const dismissed = await page.getByTestId("modal-dismissed-alert").isVisible().catch(() => false);
+      log(`Modal cancel invariant: dialogOpen=${dialogRemainsOpen} dismissed=${dismissed}`);
+      observedDefect = dialogRemainsOpen;
+      fixedBehaviourVerified = !dialogRemainsOpen && dismissed;
     }
 
     // Screenshot
@@ -172,11 +254,37 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
     await context.tracing.stop({ path: tracePath });
     log(`Trace saved`);
 
-    // Video will be saved on context close
-    await context.close();
-    context = null;
-    await browser.close();
-    browser = null;
+    verdict = opts.bugId === "BUG-01"
+      ? mapBug01ToVerdict({
+          variant: opts.variant,
+          errorVisible,
+          errorHidden,
+          errorTextCorrect,
+          successVisibleAfterFill,
+          harnessError: null,
+        })
+      : opts.variant === "buggy" && observedDefect
+        ? "DEFECT_CONFIRMED"
+        : opts.variant === "fixed" && fixedBehaviourVerified
+          ? "REGRESSION_VERIFIED"
+          : "INCONCLUSIVE";
+    log(`Verdict: ${verdict}`);
+
+    // Keep result.json running until browser shutdown and all artifacts are finalized.
+    // Otherwise the client stops polling before the recorded video is available.
+
+    // Video will be saved on page/context close
+    try {
+      await page.close();
+    } catch {}
+    try {
+      await context.close();
+      context = null;
+    } catch {}
+    try {
+      await browser.close();
+      browser = null;
+    } catch {}
 
     // Find video file (playwright names it with page id)
     const videoFiles = fs.readdirSync(runDir).filter((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
@@ -187,7 +295,6 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
         if (d.isDirectory()) {
           const inner = fs.readdirSync(path.join(runDir, d.name)).filter((f) => f.endsWith(".webm"));
           if (inner.length) {
-            // move to runDir
             for (const f of inner) {
               fs.renameSync(path.join(runDir, d.name, f), path.join(runDir, f));
             }
@@ -196,38 +303,68 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
       }
     }
 
-    verdict = mapBug01ToVerdict({
-      variant: opts.variant,
-      errorVisible,
-      errorHidden,
-      errorTextCorrect,
-      successVisibleAfterFill,
-      harnessError: null,
-    });
-    log(`Verdict: ${verdict}`);
-
-    // Automatic frame extraction — ~5-6 timestamped frames, chronological, valid IDs
-    // Reuse existing extraction implementation, fixed server-controlled args, no user input
-    try {
-      const videoFile = fs.readdirSync(runDir).find((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
-      if (videoFile) {
-        const videoPath = path.join(runDir, videoFile);
-        const framesDir = path.join(runDir, "frames");
-        const extraction = extractFramesFromVideo(videoPath, framesDir, runId);
-        if (extraction.ok) {
-          log(`Frame extraction: ${extraction.frames.length} frames from ${videoFile} (${extraction.duration.toFixed(2)}s)`);
-          // Persist frame manifest for investigation creation
-          fs.writeFileSync(path.join(framesDir, "manifest.json"), JSON.stringify({ sourceVideo: videoFile, frames: extraction.frames, duration: extraction.duration, extractedAt: new Date().toISOString() }, null, 2), "utf8");
-        } else {
-          log(`Frame extraction failed: ${extraction.error} — not fabricating metadata`);
+    // BUG-01 run captures can seed a new investigation, so keep their timestamped frames.
+    // BUG-02/03 run frames are not consumed by the investigation import flow; skip six
+    // redundant FFmpeg launches there so judges see the verdict without long post-run delay.
+    if (opts.bugId === "BUG-01") {
+      try {
+        const videoFile = fs.readdirSync(runDir).find((f) => f.endsWith(".webm") || f.endsWith(".mp4"));
+        if (videoFile) {
+          const videoPath = path.join(runDir, videoFile);
+          const framesDir = path.join(runDir, "frames");
+          const extraction = await extractFramesFromVideoAsync(videoPath, framesDir, runId);
+      if (extraction.ok) {
+            log(`Frame extraction: ${extraction.frames.length} frames from ${videoFile} (${extraction.duration.toFixed(2)}s)`);
+            fs.writeFileSync(path.join(framesDir, "manifest.json"), JSON.stringify({ sourceVideo: videoFile, frames: extraction.frames, duration: extraction.duration, extractedAt: new Date().toISOString() }, null, 2), "utf8");
+          } else {
+            log(`Frame extraction failed: ${extraction.error}`);
+          }
         }
-      } else {
-        log(`Frame extraction skipped: no video file found`);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        log(`Frame extraction error: ${msg}`);
       }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      log(`Frame extraction error: ${msg} — recording likely empty or failed, not fabricating`);
+    } else {
+      log(`Frame extraction skipped for ${opts.bugId}; screenshot, trace, and video are retained.`);
     }
+
+    // Collect all artifacts
+    const allArtifacts = [];
+    try {
+      const files = fs.readdirSync(runDir);
+      for (const f of files) {
+        if (f === "run.log" || f === "result.json") continue;
+        const fp = path.join(runDir, f);
+        const stat = fs.statSync(fp);
+        if (stat.isFile()) {
+          const ext = path.extname(f);
+          let mime = "application/octet-stream";
+          if (ext === ".png") mime = "image/png";
+          else if (ext === ".webm") mime = "video/webm";
+          else if (ext === ".zip") mime = "application/zip";
+          else if (ext === ".mp4") mime = "video/mp4";
+          allArtifacts.push({ name: f, path: f, mimeType: mime, bytes: stat.size });
+        }
+      }
+    } catch {}
+
+    const completedAt = new Date().toISOString();
+    const durationMs = Date.now() - startMs;
+    result = {
+      runId,
+      bugId: opts.bugId,
+      variant: opts.variant,
+      target: opts.target,
+      status: "completed",
+      verdict,
+      startedAt,
+      completedAt,
+      durationMs,
+      error: null,
+      artifacts: allArtifacts,
+      logs,
+    };
+    fs.writeFileSync(path.join(runDir, "result.json"), JSON.stringify(result, null, 2), "utf8");
 
   } catch (e: unknown) {
     harnessError = e instanceof Error ? e.message : String(e);
@@ -245,50 +382,47 @@ export async function runBug01Scenario(opts: { variant: "buggy" | "fixed"; targe
     try {
       if (browser) await browser.close();
     } catch {}
+
+    const completedAt = new Date().toISOString();
+    const durationMs = Date.now() - startMs;
+    const errorArtifacts = [];
+    try {
+      const files = fs.readdirSync(runDir);
+      for (const f of files) {
+        if (f === "run.log" || f === "result.json") continue;
+        const fp = path.join(runDir, f);
+        const stat = fs.statSync(fp);
+        if (stat.isFile()) {
+          const ext = path.extname(f);
+          let mime = "application/octet-stream";
+          if (ext === ".png") mime = "image/png";
+          else if (ext === ".webm") mime = "video/webm";
+          else if (ext === ".zip") mime = "application/zip";
+          errorArtifacts.push({ name: f, path: f, mimeType: mime, bytes: stat.size });
+        }
+      }
+    } catch {}
+
+    const errorResult: RunResult = {
+      runId,
+      bugId: opts.bugId,
+      variant: opts.variant,
+      target: opts.target,
+      status: "failed",
+      verdict,
+      startedAt,
+      completedAt,
+      durationMs,
+      error: harnessError,
+      artifacts: errorArtifacts,
+      logs,
+    };
+    fs.writeFileSync(path.join(runDir, "result.json"), JSON.stringify(errorResult, null, 2), "utf8");
+    return errorResult;
   }
 
-  const completedAt = new Date().toISOString();
-  const durationMs = Date.now() - startMs;
-
-  // Collect artifacts metadata
-  const artifacts = [];
-  try {
-    const files = fs.readdirSync(runDir);
-    for (const f of files) {
-      if (f === "run.log") continue;
-      const fp = path.join(runDir, f);
-      const stat = fs.statSync(fp);
-      if (stat.isFile()) {
-        const ext = path.extname(f);
-        let mime = "application/octet-stream";
-        if (ext === ".png") mime = "image/png";
-        else if (ext === ".webm") mime = "video/webm";
-        else if (ext === ".zip") mime = "application/zip";
-        else if (ext === ".mp4") mime = "video/mp4";
-        artifacts.push({ name: f, path: f, mimeType: mime, bytes: stat.size });
-      }
-    }
-  } catch {}
-
-  // Persist run metadata
-  const result: RunResult = {
-    runId,
-    variant: opts.variant,
-    target: opts.target,
-    status: harnessError ? "failed" : "completed",
-    verdict,
-    startedAt,
-    completedAt,
-    durationMs,
-    error: harnessError,
-    artifacts,
-    logs,
-  };
-
-  fs.writeFileSync(path.join(runDir, "result.json"), JSON.stringify(result, null, 2), "utf8");
-  log(`Run completed ${runId} verdict=${verdict} artifacts=${artifacts.length}`);
-
-  return result;
+  log(`Run completed ${runId} verdict=${verdict} artifacts=${result?.artifacts.length ?? 0}`);
+  return result!;
 }
 
 export function getRunResult(runId: string): RunResult | null {

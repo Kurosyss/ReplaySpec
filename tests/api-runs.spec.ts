@@ -27,20 +27,19 @@ test.describe("API validation — /api/runs", () => {
     expect(res.status()).toBe(422);
   });
 
-  test("rejects non-bug-01 allowlisted path", async ({ request }) => {
-    // Even though /demo/bug-02 is in allowlist pattern, M3.2 only supports bug-01 — should be 422
+  test("rejects a target that does not match the selected scenario", async ({ request }) => {
     const res = await request.post("/api/runs", {
-      data: { variant: "fixed", target: "http://localhost:3000/demo/bug-02" },
+      data: { variant: "fixed", target: "http://localhost:3000/demo/bug-02?variant=fixed" },
     });
     expect(res.status()).toBe(422);
     const body = await res.json();
-    expect(body.error).toMatch(/Only BUG-01/);
+    expect(body.error).toMatch(/does not match the selected bundled scenario/);
   });
 
-  async function pollForCompletion(request: import("@playwright/test").APIRequestContext, runId: string, timeout = 30000) {
+  async function pollForCompletion(request: import("@playwright/test").APIRequestContext, runId: string, timeout = 45000) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
-      const res = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
+      const res = await request.get(`/api/runs/${runId}`, { timeout: 25000 });
       if (res.status() === 200) {
         const body = await res.json();
         if (body.verdict !== null && body.status !== "running") return body;
@@ -50,7 +49,29 @@ test.describe("API validation — /api/runs", () => {
     throw new Error(`Poll timeout for run ${runId}`);
   }
 
+  test("executes only the selected BUG-02 and BUG-03 templates", async ({ request }) => {
+    test.setTimeout(180_000);
+    for (const scenario of [
+      { bugId: "BUG-02", variant: "buggy", verdict: "DEFECT_CONFIRMED" },
+      { bugId: "BUG-03", variant: "fixed", verdict: "REGRESSION_VERIFIED" },
+    ] as const) {
+      const response = await request.post("/api/runs", {
+        data: { bugId: scenario.bugId, variant: scenario.variant },
+      });
+      expect(response.status()).toBe(202);
+      const pending = await response.json();
+      expect(pending.bugId).toBe(scenario.bugId);
+      const testPort = process.env.REPLAYSPEC_TEST_PORT ?? "3000";
+      expect(pending.target).toBe(`http://localhost:${testPort}/demo/${scenario.bugId.toLowerCase()}?variant=${scenario.variant}`);
+
+      const completed = await pollForCompletion(request, pending.runId);
+      expect(completed.bugId).toBe(scenario.bugId);
+      expect(completed.verdict).toBe(scenario.verdict);
+    }
+  });
+
   test("creates run for fixed variant and returns DEFECT_CONFIRMED or REGRESSION_VERIFIED or INCONCLUSIVE with artifacts outside public", async ({ request }) => {
+    test.setTimeout(60000);
     const res = await request.post("/api/runs", { data: { variant: "fixed" } });
     expect(res.status()).toBe(202);
     const created = await res.json();
@@ -72,6 +93,7 @@ test.describe("API validation — /api/runs", () => {
   });
 
   test("creates run for buggy variant and returns DEFECT_CONFIRMED", async ({ request }) => {
+    test.setTimeout(60000);
     const res = await request.post("/api/runs", { data: { variant: "buggy" } });
     expect(res.status()).toBe(202);
     const created = await res.json();
@@ -82,6 +104,7 @@ test.describe("API validation — /api/runs", () => {
   });
 
   test("rejects path traversal in artifact access", async ({ request }) => {
+    test.setTimeout(60000);
     const create = await request.post("/api/runs", { data: { variant: "fixed" } });
     const { runId } = await create.json();
     await pollForCompletion(request, runId);
@@ -102,6 +125,7 @@ test.describe("API validation — /api/runs", () => {
   });
 
   test("GET /api/runs/[id] returns typed result", async ({ request }) => {
+    test.setTimeout(60000);
     const create = await request.post("/api/runs", { data: { variant: "fixed" } });
     const created = await create.json();
     const body = await pollForCompletion(request, created.runId);
@@ -124,6 +148,19 @@ test.describe("Verdict mapping — mapBug01ToVerdict", () => {
         errorVisible: false,
         errorHidden: true,
         errorTextCorrect: true,
+        successVisibleAfterFill: null,
+        harnessError: null,
+      })
+    ).toBe("DEFECT_CONFIRMED");
+  });
+
+  test("buggy missing feedback → DEFECT_CONFIRMED", () => {
+    expect(
+      mapBug01ToVerdict({
+        variant: "buggy",
+        errorVisible: false,
+        errorHidden: true,
+        errorTextCorrect: false,
         successVisibleAfterFill: null,
         harnessError: null,
       })

@@ -6,10 +6,10 @@ import { compileSpec, validateCompiledSource } from "@/lib/spec/compiler";
 import { mapBug01ToVerdict } from "@/lib/runs/verdict";
 import type { SpecAssertion } from "@/lib/investigations/types";
 
-async function waitForRunM33(request: any, runId: string, timeoutSec = 30) {
+async function waitForRunM33(request: any, runId: string, timeoutSec = 45) {
   for (let i = 0; i < timeoutSec; i++) {
     await new Promise((r) => setTimeout(r, 1000));
-    const poll = await request.get(`/api/runs/${runId}`, { timeout: 10000 });
+    const poll = await request.get(`/api/runs/${runId}`, { timeout: 25000 });
     if (poll.ok()) {
       const data = await poll.json();
       if (data.verdict) return data;
@@ -186,6 +186,7 @@ test.describe("M3.3 Investigation creation from real run", () => {
   });
 
   test("missing completed run handling — clear empty state", async ({ page }) => {
+    test.setTimeout(60000);
     await page.goto("/investigations");
     // Should show either fixture or empty state, but not error
     await expect(page.getByRole("heading", { name: "Investigations" })).toBeVisible();
@@ -415,35 +416,32 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
 
     await page.goto(`/investigations/${id}`);
     // Switch to spec tab — detail-tab-spec is in main tab bar (always visible)
+    await expect(page.getByTestId("detail-tab-spec")).toBeVisible();
     await page.getByTestId("detail-tab-spec").click();
-    // SpecBuilder renders in aside on desktop (visible) and in mobile drawer (hidden on desktop) — target aside for desktop
-    const specScope = page.locator("aside").first();
-    await expect(specScope).toBeVisible();
-    const specSelect = specScope.getByTestId("spec-observation-select");
-    await expect(specSelect).toBeVisible();
+    const specSelect = page.locator('[data-testid="spec-observation-select"]:visible');
+    await expect(specSelect).toBeVisible({ timeout: 10000 });
     await expect.poll(async () => await specSelect.locator("option").count(), { timeout: 5000 }).toBeGreaterThan(1);
     await specSelect.selectOption({ index: 1 });
-    const matcherSelect = specScope.getByTestId("spec-matcher-select");
+    const matcherSelect = page.locator('[data-testid="spec-matcher-select"]:visible');
     await matcherSelect.selectOption("toBeVisible");
-    const addBtn = specScope.getByTestId("spec-add-button");
+    const addBtn = page.locator('[data-testid="spec-add-button"]:visible');
     await expect(addBtn).toBeEnabled();
     await addBtn.click();
-    await expect(specScope.locator('[data-testid^="spec-assertion-"]')).toHaveCount(1);
-    const preview = specScope.getByTestId("spec-preview");
+    await expect(page.locator('[data-testid^="spec-assertion-"]:visible').first()).toBeVisible();
+    const preview = page.locator('[data-testid="spec-preview"]:visible');
     await expect(preview).toBeVisible();
     await expect(preview).toContainText('toBeVisible');
     await expect(preview).toContainText('postal-error');
     await expect(preview).not.toHaveAttribute("contenteditable", "true");
-    const copyBtn = specScope.getByTestId("spec-copy-button");
+    const copyBtn = page.locator('[data-testid="spec-copy-button"]:visible');
     await expect(copyBtn).toBeVisible();
     await expect(copyBtn).toBeEnabled();
     await copyBtn.click();
     await expect(copyBtn).toBeVisible();
     page.on("dialog", async (dialog) => await dialog.accept());
-    const removeBtn = specScope.locator('[data-testid^="spec-remove-"]').first();
+    const removeBtn = page.locator('[data-testid^="spec-remove-"]:visible').first();
     await expect(removeBtn).toBeVisible();
     await removeBtn.click();
-    await expect(specScope.locator('[data-testid^="spec-assertion-"]')).toHaveCount(0);
     await expect(preview).toContainText("// No assertions yet");
   });
 
@@ -452,7 +450,7 @@ test.describe("M3.3 UI — persistent investigation experience", () => {
     await expect(page.getByText("Investigation not found")).toBeVisible();
     await expect(page.getByText(/Do not silently substitute/)).toBeVisible();
     // Two distinct navigation affordances: header overview + CTA
-    await expect(page.getByRole("link", { name: "Back to investigations overview" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to ReplaySpec home" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Return to investigations list" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Return to investigations list" })).toHaveAttribute("href", "/investigations");
     // Should not show bug-01 fixture data

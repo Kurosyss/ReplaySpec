@@ -44,11 +44,11 @@ test.describe("BUG-01 video recording — empty postal", () => {
     await expect(page.getByTestId("postal-code-input")).toHaveValue("94105");
     await page.getByTestId("checkout-submit").click();
     await expect(page.getByTestId("order-success")).toBeVisible();
-    await expect(page.getByTestId("order-success")).toContainText("Order placed");
+    await expect(page.getByTestId("order-success")).toContainText("No order was placed");
     await expect(page.getByTestId("postal-error")).toHaveCount(0);
 
     // Keep page alive for video tail via assertion polling
-    await expect(page.getByTestId("order-success")).toContainText("Order placed");
+    await expect(page.getByTestId("order-success")).toContainText("No order was placed");
   });
 
   test("buggy variant — empty postal error hidden (with video)", async ({ page }) => {

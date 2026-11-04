@@ -18,8 +18,8 @@ export function mapBug01ToVerdict(opts: {
   if (opts.harnessError) return "HARNESS_ERROR";
 
   if (opts.variant === "buggy") {
-    // Buggy should have error hidden (display:none) despite empty postal
-    if (opts.errorHidden === true && opts.errorTextCorrect === true) return "DEFECT_CONFIRMED";
+    // Missing or hidden required feedback both confirm the visible-error defect.
+    if (opts.errorHidden === true) return "DEFECT_CONFIRMED";
     if (opts.errorVisible === true) return "INCONCLUSIVE"; // buggy should not show visible error
     return "INCONCLUSIVE";
   }

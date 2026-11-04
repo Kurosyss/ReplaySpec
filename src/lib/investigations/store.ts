@@ -2,7 +2,63 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { EvidenceBundleSchema, type EvidenceBundle } from "../evidence";
+import { bug01Investigation } from "../fixtures/bug01-investigation";
+import { bug02Investigation } from "../fixtures/bug02-investigation";
+import { bug03Investigation } from "../fixtures/bug03-investigation";
 import type { InvestigationMeta, InvestigationRecord, SpecData } from "./types";
+
+const BUG_01_META: InvestigationMeta = {
+  id: "bug-01",
+  title: "BUG-01 — Checkout postal-code validation (fixed)",
+  bugId: "BUG-01",
+  variant: "fixed",
+  target: "/demo/bug-01?variant=fixed",
+  status: "verified",
+  verdict: "REGRESSION_VERIFIED",
+  createdAt: "2026-03-30T10:00:00.000Z",
+  updatedAt: "2026-03-30T10:00:00.000Z",
+  runId: "run-bug-01-benchmark",
+  frameCount: bug01Investigation.frames.length,
+  duration: `${bug01Investigation.frames.length} frames`,
+  sourceVideo: "fixture",
+  specSupportStatus: "SUPPORTED",
+};
+
+export const CURATED_BENCHMARKS: InvestigationMeta[] = [
+  BUG_01_META,
+  {
+    id: "bug-02",
+    title: "BUG-02 — Cart counter race",
+    bugId: "BUG-02",
+    variant: "buggy",
+    target: "/demo/bug-02?variant=buggy",
+    status: "analyzed",
+    verdict: "DEFECT_CONFIRMED",
+    createdAt: "2026-04-01T14:30:00.000Z",
+    updatedAt: "2026-04-01T14:30:00.000Z",
+    runId: "run-bug-02-benchmark",
+    frameCount: bug02Investigation.frames.length,
+    duration: `${bug02Investigation.frames.length} frames`,
+    sourceVideo: "fixture",
+    specSupportStatus: "SUPPORTED",
+  },
+  {
+    id: "bug-03",
+    title: "BUG-03 — Modal Cancel blocked by overlay",
+    bugId: "BUG-03",
+    variant: "buggy",
+    target: "/demo/bug-03?variant=buggy",
+    status: "analyzed",
+    verdict: "DEFECT_CONFIRMED",
+    createdAt: "2026-04-02T09:15:00.000Z",
+    updatedAt: "2026-04-02T09:15:00.000Z",
+    runId: "run-bug-03-benchmark-buggy",
+    frameCount: bug03Investigation.frames.length,
+    duration: `${bug03Investigation.frames.length} frames`,
+    sourceVideo: "fixture",
+    specSupportStatus: "SUPPORTED",
+  },
+];
 
 const INVESTIGATIONS_ROOT = path.join(process.cwd(), "test-results", "investigations");
 
@@ -139,6 +195,8 @@ export function saveInvestigation(record: InvestigationRecord): { ok: true; id: 
       atomicWriteFile(specTestPath, "// Generated spec will appear here after adding assertions\n");
     }
 
+    _metaCache.set(record.meta.id, record.meta);
+    invalidateInvestigationsCache();
     return { ok: true, id: record.meta.id };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -148,16 +206,26 @@ export function saveInvestigation(record: InvestigationRecord): { ok: true; id: 
 
 export function getInvestigation(id: string): InvestigationRecord | null {
   if (!isValidInvestigationId(id)) return null;
+
+  // Check curated benchmark fixtures first
+  const benchmark = CURATED_BENCHMARKS.find((b) => b.id === id);
+  if (benchmark) {
+    if (id === "bug-02") return { bundle: bug02Investigation, meta: benchmark };
+    if (id === "bug-03") return { bundle: bug03Investigation, meta: benchmark };
+    return { bundle: bug01Investigation, meta: benchmark };
+  }
+
   const dir = getInvestigationDir(id);
   if (!dir) return null;
   const bundlePath = path.join(dir, "bundle.json");
   const metaPath = path.join(dir, "investigation.json");
-  if (!fs.existsSync(bundlePath) || !fs.existsSync(metaPath)) return null;
+  if (!fs.existsSync(bundlePath) || !fs.existsSync(metaPath)) {
+    return null;
+  }
 
   try {
     const bundleRaw = fs.readFileSync(bundlePath, "utf8");
     const metaRaw = fs.readFileSync(metaPath, "utf8");
-    // Handle malformed JSON safely
     let bundleJson: unknown;
     let metaJson: unknown;
     try {
@@ -171,11 +239,9 @@ export function getInvestigation(id: string): InvestigationRecord | null {
       return null;
     }
 
-    // Validate bundle after reading
     const parsed = EvidenceBundleSchema.safeParse(bundleJson);
     if (!parsed.success) return null;
 
-    // Check for partially written (empty file)
     if (!metaJson || typeof metaJson !== "object") return null;
 
     return { bundle: parsed.data, meta: metaJson as InvestigationMeta };
@@ -184,24 +250,100 @@ export function getInvestigation(id: string): InvestigationRecord | null {
   }
 }
 
+let _cachedMetas: InvestigationMeta[] | null = null;
+
+export function invalidateInvestigationsCache() {
+  _cachedMetas = null;
+  try {
+    const indexPath = path.join(INVESTIGATIONS_ROOT, ".index.json");
+    if (fs.existsSync(indexPath)) {
+      fs.unlinkSync(indexPath);
+    }
+  } catch {}
+}
+
+const _metaCache = new Map<string, InvestigationMeta>();
+
+export function getInvestigationMeta(id: string): InvestigationMeta | null {
+  if (!isValidInvestigationId(id)) return null;
+
+  const benchmark = CURATED_BENCHMARKS.find((b) => b.id === id);
+  if (benchmark) return benchmark;
+
+  const cached = _metaCache.get(id);
+  if (cached) return cached;
+
+  const metaPath = path.join(INVESTIGATIONS_ROOT, id, "investigation.json");
+  try {
+    const metaRaw = fs.readFileSync(metaPath, "utf8");
+    const metaJson = JSON.parse(metaRaw);
+    if (!metaJson || typeof metaJson !== "object" || !metaJson.id) return null;
+    const meta = metaJson as InvestigationMeta;
+    _metaCache.set(id, meta);
+    return meta;
+  } catch {
+    return null;
+  }
+}
+
 export function listInvestigations(): InvestigationMeta[] {
+  if (_cachedMetas !== null) return _cachedMetas;
   ensureRoot();
   try {
+    const indexPath = path.join(INVESTIGATIONS_ROOT, ".index.json");
+    try {
+      if (fs.existsSync(indexPath)) {
+        const raw = fs.readFileSync(indexPath, "utf8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Curated benchmark metadata is source-controlled and authoritative.
+          // Older index snapshots can retain obsolete counts after fixture updates.
+          const curatedIds = new Set(CURATED_BENCHMARKS.map((benchmark) => benchmark.id));
+          const savedMetas = parsed.filter(
+            (meta): meta is InvestigationMeta =>
+              Boolean(meta) && typeof meta === "object" && typeof meta.id === "string" && !curatedIds.has(meta.id)
+          );
+          const refreshed = [...CURATED_BENCHMARKS, ...savedMetas];
+          _cachedMetas = refreshed;
+          try {
+            fs.writeFileSync(indexPath, JSON.stringify(refreshed), "utf8");
+          } catch {}
+          return refreshed;
+        }
+      }
+    } catch {}
+
     const entries = fs.readdirSync(INVESTIGATIONS_ROOT, { withFileTypes: true });
-    const metas: InvestigationMeta[] = [];
+    const diskMetas: InvestigationMeta[] = [];
+    const seenIds = new Set<string>();
+
+    for (const b of CURATED_BENCHMARKS) {
+      seenIds.add(b.id);
+    }
+
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const id = entry.name;
       if (!isValidInvestigationId(id)) continue;
-      const meta = getInvestigation(id)?.meta;
-      if (meta) metas.push(meta);
-      // Silently skip malformed/partial records
+      if (seenIds.has(id)) continue;
+      const meta = getInvestigationMeta(id);
+      if (meta) {
+        diskMetas.push(meta);
+        seenIds.add(id);
+      }
     }
-    // Sort by updatedAt descending
-    metas.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+    diskMetas.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const metas = [...CURATED_BENCHMARKS, ...diskMetas];
+    _cachedMetas = metas;
+
+    try {
+      fs.writeFileSync(indexPath, JSON.stringify(metas), "utf8");
+    } catch {}
+
     return metas;
   } catch {
-    return [];
+    return CURATED_BENCHMARKS;
   }
 }
 
@@ -210,7 +352,12 @@ export function getSpec(investigationId: string): SpecData | null {
   const dir = getInvestigationDir(investigationId);
   if (!dir) return null;
   const specPath = path.join(dir, "spec.json");
-  if (!fs.existsSync(specPath)) return null;
+  if (!fs.existsSync(specPath)) {
+    if (investigationId === "bug-01") {
+      return { investigationId: "bug-01", assertions: [], compiledSource: null, updatedAt: null };
+    }
+    return null;
+  }
   try {
     const raw = fs.readFileSync(specPath, "utf8");
     const parsed = JSON.parse(raw);
@@ -218,6 +365,9 @@ export function getSpec(investigationId: string): SpecData | null {
     if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.assertions)) return null;
     return parsed as SpecData;
   } catch {
+    if (investigationId === "bug-01") {
+      return { investigationId: "bug-01", assertions: [], compiledSource: null, updatedAt: null };
+    }
     return null;
   }
 }

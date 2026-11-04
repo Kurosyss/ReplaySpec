@@ -19,23 +19,23 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const fetchSpec = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/investigations/${investigationId}/spec`);
-      if (res.ok) {
-        const data: { spec: SpecData | null } = await res.json();
-        setSpec(data.spec);
-      }
-    } catch (err: unknown) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [investigationId]);
-
   useEffect(() => {
-    fetchSpec();
-  }, [fetchSpec]);
+    let active = true;
+    fetch(`/api/investigations/${investigationId}/spec`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data) setSpec(data.spec);
+      })
+      .catch((err) => {
+        if (active) console.error(err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [investigationId]);
 
   const handleAdd = async () => {
     setError(null);
@@ -78,9 +78,12 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
   const handleRemove = async (assertionId: string) => {
     if (!confirm(`Remove assertion ${assertionId}?`)) return;
     try {
-      const res = await fetch(`/api/investigations/${investigationId}/spec?assertionId=${encodeURIComponent(assertionId)}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/investigations/${investigationId}/spec?assertionId=${encodeURIComponent(assertionId)}`,
+        {
+          method: "DELETE",
+        }
+      );
       const data: { spec?: SpecData; error?: string } = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to remove");
@@ -101,8 +104,11 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
 
   if (loading) {
     return (
-      <div className="rounded-[8px] border bg-[var(--surface)] p-4" style={{ borderColor: "var(--border-muted)" }}>
-        <p className="font-mono text-[11px] text-[var(--text-tertiary)]">Loading specification…</p>
+      <div
+        className="rounded-[8px] border bg-[var(--surface)] p-4 shadow-sm"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
+        <p className="font-mono text-xs text-[var(--text-tertiary)]">Loading specification…</p>
       </div>
     );
   }
@@ -113,15 +119,39 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
   // NEEDS_MAPPING: unsupported scenario — show honest state, no fabricated assertions
   if (specSupportStatus === "NEEDS_MAPPING" || specSupportStatus === "UNSUPPORTED") {
     return (
-      <div className="flex flex-col gap-4" data-testid="spec-needs-mapping">
-        <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-          <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Specification</p>
-          <p className="mt-1 font-mono text-[13px] font-medium leading-5 text-[var(--text-primary)]">Specification not yet available for this scenario — evidence preserved, needs mapping</p>
-          <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-secondary)]">This recording is not BUG-01. Evidence is preserved with {bundle.frames.length} frames and {bundle.observations.length} observations, but no BUG-01 spec template applies.</p>
+      <div className="flex flex-col gap-3" data-testid="spec-needs-mapping">
+        <div
+          className="rounded-[8px] border bg-[var(--surface-elevated)] p-3.5"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[var(--amber)]">
+              Specification Status
+            </span>
+            <span className="rounded bg-[var(--surface)] px-1.5 py-0.2 font-mono text-[9px] text-[var(--text-secondary)] border border-[var(--border-muted)]">
+              NEEDS_MAPPING
+            </span>
+          </div>
+          <p className="mt-1.5 text-[13px] font-medium leading-relaxed text-[var(--text-primary)]">
+            Specification mapping required for this recording scenario.
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+            Evidence is preserved ({bundle.frames.length} frames, {bundle.observations.length} observations), but no automated spec template matches this route. Author custom assertions or map targets to compile a regression test.
+          </p>
         </div>
-        <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-          <p className="font-mono text-[11px] text-[var(--text-tertiary)]">No assertions — mapping required before generating a regression test.</p>
-          <pre data-testid="spec-preview" className="mt-2 max-h-64 overflow-auto rounded-[6px] bg-[var(--surface-elevated)] p-3 font-mono text-[11px] leading-4 text-[var(--text-primary)]" style={{ border: "1px solid var(--border-muted)" }}>
+
+        <div
+          className="rounded-[8px] border bg-[var(--surface)] p-3.5"
+          style={{ borderColor: "var(--border-muted)" }}
+        >
+          <p className="font-mono text-[11px] text-[var(--text-tertiary)]">
+            {"// No assertions yet — mapping required before generating executable test."}
+          </p>
+          <pre
+            data-testid="spec-preview"
+            className="mt-2.5 max-h-60 overflow-auto rounded-[6px] border bg-[var(--canvas)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-secondary)]"
+            style={{ borderColor: "var(--border-muted)" }}
+          >
             <code>{"// No assertions yet — needs mapping"}</code>
           </pre>
         </div>
@@ -130,53 +160,73 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-[8px] border bg-[var(--surface-elevated)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-        <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Specification Provenance</p>
-        <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-secondary)]">
-          Each assertion references a validated observation and its frame. No hypothesis silently becomes an assertion.
+    <div className="flex flex-col gap-3.5">
+      {/* Specification Provenance Card */}
+      <div
+        className="rounded-[8px] border bg-[var(--surface-elevated)] p-3.5"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+            Specification Provenance
+          </p>
+          <span className="rounded bg-[var(--surface)] px-1.5 py-0.2 font-mono text-[9px] text-[var(--text-secondary)] border border-[var(--border-muted)]">
+            {spec?.assertions.length ?? 0} assertions
+          </span>
+        </div>
+        <p className="mt-1.5 text-xs leading-relaxed text-[var(--text-secondary)]">
+          Every assertion is strictly grounded in a validated observation and verified video frame. Hypotheses cannot become assertions without explicit promotion.
         </p>
-        <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">
-          Allowlisted selectors: <span className="font-medium text-[var(--text-primary)]">postal-error</span> • Matchers: <span className="font-medium text-[var(--text-primary)]">toBeVisible, toBeHidden, toHaveText</span>
+        <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">
+          Allowlisted selector: <span className="text-[var(--text-primary)] font-medium">postal-error</span> · Matchers: <span className="text-[var(--text-primary)] font-medium">toBeVisible, toBeHidden, toHaveText</span>
         </p>
       </div>
 
-      {/* Builder */}
-      <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)", boxShadow: "var(--shadow-sm)" }}>
-        <h4 className="text-[13px] font-medium text-[var(--text-primary)]" style={{ letterSpacing: "-0.01em" }}>Add evidence-linked assertion</h4>
+      {/* Builder Form */}
+      <div
+        className="rounded-[8px] border bg-[var(--surface)] p-3.5 shadow-sm"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
+        <h4 className="text-[13px] font-semibold tracking-tight text-[var(--text-primary)]">
+          Add evidence-linked assertion
+        </h4>
 
         <div className="mt-3 flex flex-col gap-3">
           <div>
-            <label className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Observation</label>
+            <label className="block font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+              Observation source *
+            </label>
             <select
               data-testid="spec-observation-select"
               value={selectedObsId}
               onChange={(e) => setSelectedObsId(e.target.value)}
-              className="mt-1 w-full rounded-[6px] border bg-[var(--surface)] px-2 py-1.5 font-mono text-[12px] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-              style={{ borderColor: "var(--border)" }}
+              className="w-full rounded-[5px] border bg-[var(--surface)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              style={{ borderColor: "var(--border-muted)" }}
             >
-              <option value="">Select observation…</option>
+              <option value="">Select validated observation…</option>
               {bundle.observations.map((obs) => (
                 <option key={obs.id} value={obs.id}>
-                  {obs.id} — {obs.timestamp} — {obs.statement.slice(0, 60)}…
+                  {obs.id} · {obs.timestamp} · {obs.statement.slice(0, 50)}…
                 </option>
               ))}
             </select>
             {selectedObs && selectedFrame ? (
-              <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">
-                Provenance: <span className="text-[var(--text-primary)]">{selectedObs.id}</span> • Frame <span className="text-[var(--accent)]">{selectedFrame.timestamp} {selectedFrame.frameId}</span> • Expected: <span className="text-[var(--text-primary)]">Submitting without postal code must display &quot;Postal code is required.&quot;</span>
+              <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-[var(--text-tertiary)]">
+                Provenance: <span className="text-[var(--text-primary)] font-medium">{selectedObs.id}</span> · Frame <span className="text-[var(--accent)] font-medium">{selectedFrame.timestamp} ({selectedFrame.frameId})</span>
               </p>
             ) : null}
           </div>
 
           <div>
-            <label className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Matcher</label>
+            <label className="block font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+              Matcher *
+            </label>
             <select
               data-testid="spec-matcher-select"
               value={selectedMatcher}
               onChange={(e) => setSelectedMatcher(e.target.value as AssertionMatcher)}
-              className="mt-1 w-full rounded-[6px] border bg-[var(--surface)] px-2 py-1.5 font-mono text-[12px] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-              style={{ borderColor: "var(--border)" }}
+              className="w-full rounded-[5px] border bg-[var(--surface)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              style={{ borderColor: "var(--border-muted)" }}
             >
               <option value="toBeVisible">toBeVisible</option>
               <option value="toBeHidden">toBeHidden</option>
@@ -186,21 +236,29 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
 
           {selectedMatcher === "toHaveText" ? (
             <div>
-              <label className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Expected text</label>
+              <label className="block font-mono text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
+                Expected text *
+              </label>
               <input
                 data-testid="spec-expected-text-input"
                 value={expectedText}
                 onChange={(e) => setExpectedText(e.target.value)}
                 placeholder="Postal code is required."
-                className="mt-1 w-full rounded-[6px] border bg-[var(--surface)] px-2 py-1.5 font-mono text-[12px] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
-                style={{ borderColor: "var(--border)" }}
+                className="w-full rounded-[5px] border bg-[var(--surface)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                style={{ borderColor: "var(--border-muted)" }}
               />
-              <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">Must match expected behaviour verbatim.</p>
+              <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">
+                Must match verbatim user expected behaviour statement.
+              </p>
             </div>
           ) : null}
 
           {error ? (
-            <p data-testid="spec-error" className="rounded-[6px] bg-[var(--red-muted)] px-2 py-1.5 font-mono text-[11px] leading-4 text-[var(--red)]" style={{ border: "1px solid var(--red)" }}>
+            <p
+              data-testid="spec-error"
+              className="rounded-[5px] p-2 font-mono text-[11px] text-[var(--red)] border"
+              style={{ borderColor: "var(--red)", background: "var(--red-muted)" }}
+            >
               {error}
             </p>
           ) : null}
@@ -210,37 +268,55 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
             data-testid="spec-add-button"
             onClick={handleAdd}
             disabled={!selectedObsId}
-            className="inline-flex items-center justify-center rounded-[6px] bg-[var(--accent)] px-3 py-1.5 font-mono text-[12px] font-medium text-white hover:bg-[var(--accent-hover)] disabled:opacity-40"
+            className="inline-flex items-center justify-center rounded-[5px] bg-[var(--accent)] px-3 py-1.5 font-mono text-xs font-semibold text-white transition-colors hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Add assertion
+            Add Assertion
           </button>
         </div>
       </div>
 
-      {/* Assertions list */}
-      <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
-        <h4 className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Assertions ({spec?.assertions.length ?? 0})</h4>
+      {/* Assertions List */}
+      <div
+        className="rounded-[8px] border bg-[var(--surface)] p-3.5 shadow-sm"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
+        <div className="flex items-center justify-between">
+          <h4 className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+            Authored Assertions ({spec?.assertions.length ?? 0})
+          </h4>
+          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
+            regression contract
+          </span>
+        </div>
+
         {!spec?.assertions.length ? (
-          <p className="mt-2 font-mono text-[12px] leading-5 text-[var(--text-tertiary)]">No assertions yet — select an observation above to generate a spec.</p>
+          <p className="mt-2 text-xs leading-relaxed text-[var(--text-tertiary)]">
+            No assertions authored yet. Select an observation above to link evidence and generate test assertions.
+          </p>
         ) : (
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul className="mt-2.5 flex flex-col gap-2">
             {spec.assertions.map((a) => (
-              <li key={a.id} data-testid={`spec-assertion-${a.id}`} className="flex items-center justify-between rounded-[6px] border bg-[var(--surface-elevated)] px-2 py-1.5" style={{ borderColor: "var(--border-muted)" }}>
-                <div className="min-w-0">
-                  <p className="truncate font-mono text-[11px] leading-4 text-[var(--text-primary)]">
+              <li
+                key={a.id}
+                data-testid={`spec-assertion-${a.id}`}
+                className="flex items-center justify-between rounded-[5px] border bg-[var(--surface-elevated)] p-2.5"
+                style={{ borderColor: "var(--border-muted)" }}
+              >
+                <div className="min-w-0 pr-2">
+                  <p className="truncate font-mono text-[11px] font-medium text-[var(--text-primary)]">
                     {a.selector} · {a.matcher}
                     {a.expectedText ? ` · "${a.expectedText}"` : ""}
                   </p>
-                  <p className="font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">
-                    from {a.observationId} @ {a.timestamp} {a.frameId}
+                  <p className="mt-0.5 font-mono text-[10px] text-[var(--text-tertiary)]">
+                    grounded in {a.observationId} @ {a.timestamp} ({a.frameId})
                   </p>
                 </div>
                 <button
                   type="button"
                   data-testid={`spec-remove-${a.id}`}
                   onClick={() => handleRemove(a.id)}
-                  className="ml-2 rounded-[6px] border bg-[var(--surface)] px-2 py-1 font-mono text-[11px] text-[var(--text-secondary)] hover:bg-[var(--red-muted)] hover:text-[var(--red)]"
-                  style={{ borderColor: "var(--border)" }}
+                  className="rounded-[4px] border bg-[var(--surface)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)] transition-colors hover:border-[var(--red)] hover:bg-[var(--red-muted)] hover:text-[var(--red)]"
+                  style={{ borderColor: "var(--border-muted)" }}
                 >
                   Remove
                 </button>
@@ -250,32 +326,45 @@ export function SpecBuilder({ investigationId, bundle, specSupportStatus }: Prop
         )}
       </div>
 
-      {/* Compiled preview */}
-      <div className="rounded-[8px] border bg-[var(--surface)] p-3" style={{ borderColor: "var(--border-muted)" }}>
+      {/* Compiled Playwright Preview */}
+      <div
+        className="rounded-[8px] border bg-[var(--surface)] p-3.5 shadow-sm"
+        style={{ borderColor: "var(--border-muted)" }}
+      >
         <div className="flex items-center justify-between">
-          <h4 className="font-mono text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">Compiled preview</h4>
-          <span className="rounded-full bg-[var(--surface-elevated)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[var(--text-tertiary)]">Read-only</span>
+          <h4 className="font-mono text-[10px] font-semibold uppercase tracking-widest text-[var(--text-tertiary)]">
+            Compiled Test Preview
+          </h4>
+          <span className="rounded bg-[var(--surface-elevated)] px-1.5 py-0.2 font-mono text-[9px] uppercase tracking-wider text-[var(--text-tertiary)] border border-[var(--border-muted)]">
+            Read-only
+          </span>
         </div>
-        <p className="mt-1 font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">Preview only — generated specification is not executed by this runner.</p>
+        <p className="mt-1 font-mono text-[10px] text-[var(--text-tertiary)]">
+          Constrained Playwright code generated from verified assertions.
+        </p>
+
         <pre
           data-testid="spec-preview"
-          className="mt-2 max-h-64 overflow-auto rounded-[6px] bg-[var(--surface-elevated)] p-3 font-mono text-[11px] leading-4 text-[var(--text-primary)]"
-          style={{ border: "1px solid var(--border-muted)" }}
+          className="mt-2.5 max-h-56 overflow-auto rounded-[6px] border bg-[var(--canvas)] p-3 font-mono text-[11px] leading-relaxed text-[var(--text-secondary)]"
+          style={{ borderColor: "var(--border-muted)" }}
         >
           <code>{spec?.compiledSource ?? "// No assertions yet"}</code>
         </pre>
-        <div className="mt-2 flex gap-2">
+
+        <div className="mt-2.5 flex items-center justify-between gap-2">
           <button
             type="button"
             data-testid="spec-copy-button"
             onClick={handleCopy}
             disabled={!spec?.compiledSource}
-            className="rounded-[6px] border bg-[var(--surface)] px-3 py-1.5 font-mono text-[11px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-hover)] disabled:opacity-40"
-            style={{ borderColor: "var(--border)" }}
+            className="rounded-[5px] border bg-[var(--surface-elevated)] px-3 py-1 font-mono text-[11px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-hover)] disabled:opacity-40"
+            style={{ borderColor: "var(--border-muted)" }}
           >
-            {copied ? "Copied!" : "Copy source"}
+            {copied ? "Copied!" : "Copy test source"}
           </button>
-          <span className="font-mono text-[11px] leading-4 text-[var(--text-tertiary)]">Saved to test-results/investigations/{investigationId}/spec-test.ts</span>
+          <span className="font-mono text-[10px] text-[var(--text-tertiary)] truncate">
+            test-results/investigations/{investigationId}/spec-test.ts
+          </span>
         </div>
       </div>
     </div>

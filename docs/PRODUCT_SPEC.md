@@ -20,7 +20,7 @@ It is designed to make the path from observed bug to reproducible verification e
 1. Upload an existing browser recording.
 2. Describe the expected behaviour.
 3. Select an approved target application.
-4. Analyse the recording with the configured Meta model.
+4. Analyse the recording with the configured vision model provider.
 5. Review timestamped observations and model hypotheses.
 6. Validate the proposed regression specification.
 7. Compile a constrained Playwright test.

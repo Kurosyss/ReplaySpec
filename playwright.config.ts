@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const useExistingServerOnly = process.env.REPLAYSPEC_USE_EXISTING_SERVER === "1";
+const testPort = Number(process.env.REPLAYSPEC_TEST_PORT ?? 3000);
+const testOrigin = `http://localhost:${testPort}`;
+
 /**
  * ReplaySpec Playwright config for BUG-01 vertical slice.
  * - Chromium only for MVP (fast, deterministic).
@@ -15,12 +19,12 @@ export default defineConfig({
   reporter: [["html", { open: "never" }], ["list"]],
   outputDir: "test-results/artifacts",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: testOrigin,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    actionTimeout: 5_000,
-    navigationTimeout: 10_000,
+    actionTimeout: 10_000,
+    navigationTimeout: 25_000,
   },
   projects: [
     {
@@ -28,9 +32,9 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000/demo/bug-01?variant=fixed",
+  webServer: useExistingServerOnly ? undefined : {
+    command: `npm run dev -- --port ${testPort}`,
+    url: `${testOrigin}/demo/bug-01?variant=fixed`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
     stdout: "pipe",
@@ -38,6 +42,8 @@ export default defineConfig({
     env: {
       PLAYWRIGHT_TEST: "1",
       REPLAYSPEC_ALLOW_FIXTURES: "1",
+      REPLAYSPEC_TEST_PORT: String(testPort),
+      REPLAYSPEC_NEXT_DIST_DIR: ".next-playwright",
     },
   },
 });

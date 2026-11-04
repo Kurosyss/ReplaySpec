@@ -81,7 +81,7 @@ test.describe("Theme toggle — Linear-inspired dual theme", () => {
       return document.documentElement.hasAttribute("data-theme");
     });
     expect(hasScript).toBeTruthy();
-    // No FOUC: canvas background should be either #08090A (dark) or #ffffff (light), not unstyled
+    // No FOUC: canvas background should be either #090b0e (dark) or #ffffff (light), not unstyled
     const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     expect(bg).not.toBe("rgba(0, 0, 0, 0)");
   });
@@ -126,7 +126,7 @@ test.describe("Theme toggle — Linear-inspired dual theme", () => {
     });
     await page.reload();
     const darkCanvas = await page.evaluate(() => getComputedStyle(document.body).getPropertyValue("--canvas").trim());
-    expect(darkCanvas.toLowerCase()).toBe("#08090a");
+    expect(darkCanvas.toLowerCase()).toBe("#090b0e");
     expect(darkCanvas).not.toBe(lightCanvas);
   });
 

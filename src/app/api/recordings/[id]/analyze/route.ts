@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { getRecording } from "@/lib/recordings/store";
-import { extractFramesFromVideo } from "@/lib/frames/extractor";
-import { EvidenceBundleSchema } from "@/lib/evidence";
-import { saveInvestigation, generateInvestigationId } from "@/lib/investigations/store";
-import type { InvestigationMeta } from "@/lib/investigations/types";
+import { extractFramesFromVideoAsync } from "@/lib/frames/extractor";
+import { getModelProviderConfig } from "@/lib/muse/provider";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -14,6 +12,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const recording = getRecording(id);
   if (!recording) {
     return NextResponse.json({ error: "Recording not found" }, { status: 404 });
+  }
+
+  // Check readiness before extracting frames or making any provider request.
+  const modelProvider = getModelProviderConfig();
+  if (!modelProvider.provider) {
+    return NextResponse.json({
+      error: `Unknown MODEL_PROVIDER "${modelProvider.invalidProvider}".`,
+      analysisStatus: "FAILED",
+    }, { status: 503 });
+  }
+  if (!modelProvider.configured) {
+    return NextResponse.json({
+      error: `Model provider is not configured: add ${modelProvider.credential} to the server environment and confirm account access.`,
+      analysisStatus: "FAILED",
+      provider: modelProvider.label,
+    }, { status: 503 });
+  }
+  if (!modelProvider.liveAnalysisEnabled) {
+    return NextResponse.json({
+      error: "Live model analysis is disabled. Set REPLAYSPEC_LIVE_ANALYSIS=true on the server after checking provider terms, plan, and rate limits.",
+      analysisStatus: "DISABLED",
+      provider: modelProvider.label,
+      model: modelProvider.model,
+    }, { status: 503 });
   }
 
   // Get recording file path
@@ -28,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Step 1: Extract frames
   const framesDir = path.join(process.cwd(), "test-results", "recordings", id, "frames");
-  const extraction = extractFramesFromVideo(recordingPath, framesDir, id);
+  const extraction = await extractFramesFromVideoAsync(recordingPath, framesDir, id);
 
   if (!extraction.ok) {
     return NextResponse.json(
@@ -48,21 +70,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     fs.writeFileSync(manifestPath, JSON.stringify({ sourceVideo: recording.originalFileName, frames: extraction.frames, duration: extraction.duration, extractedAt: new Date().toISOString() }, null, 2));
   }
 
-  // Step 2: Muse analysis — multi-image with expected behaviour
-  // Use the exact configured hackathon model
-  const model = "meta-models/muse-spark-open-1026";
-  const baseURL = process.env.BASETEN_API_KEY ? "https://inference.baseten.co/v1" : null;
-  const apiKey = process.env.BASETEN_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json({ error: "Muse model not configured — BASETEN_API_KEY missing", analysisStatus: "FAILED" }, { status: 500 });
-  }
+  // Step 2: Image-model analysis — provider and exact model ID are server-configured.
+  const model = modelProvider.model;
 
   // Build prompt with user-provided expected behaviour
   const expectedBehaviour = recording.expectedBehaviour;
 
-  // Prepare frames for Muse (limit to 6, as per extraction)
-  const frames = extraction.frames.slice(0, 6);
+  // Bound the visual payload to control cost while preserving temporal coverage.
+  const maxFrames = Math.max(2, Math.min(modelProvider.maxImages, Number.parseInt(process.env.MODEL_MAX_FRAMES ?? "3", 10) || 3));
+  const sourceFrames = extraction.frames;
+  const frames = sourceFrames.length <= maxFrames
+    ? sourceFrames
+    : Array.from({ length: maxFrames }, (_, index) => sourceFrames[Math.round(index * (sourceFrames.length - 1) / (maxFrames - 1))]);
 
   // Build content array with timestamped frames
   const content: any[] = [
@@ -124,17 +143,22 @@ Every observation must reference a real frameId from the provided set.`,
   let usage: any = null;
 
   try {
-    const res = await fetch("https://inference.baseten.co/v1/chat/completions", {
+    const res = await fetch(`${modelProvider.baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${modelProvider.apiKey}`,
+        ...(modelProvider.provider === "openrouter" ? { "HTTP-Referer": "https://replayspec.dev", "X-Title": "ReplaySpec" } : {}),
       },
       body: JSON.stringify({
         model,
         messages: [{ role: "user", content }],
-        max_tokens: 5000,
+        max_completion_tokens: 2400,
+        reasoning_effort: process.env.MODEL_REASONING_EFFORT ?? process.env.MUSE_REASONING_EFFORT ?? "low",
         temperature: 0.2,
+        ...(modelProvider.provider === "groq" || modelProvider.provider === "openrouter"
+          ? { response_format: { type: "json_object" } }
+          : {}),
       }),
     });
 
@@ -149,14 +173,16 @@ Every observation must reference a real frameId from the provided set.`,
     usage = museResponse?.usage ?? null;
 
     if (!res.ok) {
-      // Handle Muse API failure
+      // Handle model provider failure
       return NextResponse.json(
         {
-          error: "Muse analysis failed",
+          error: "Image-model analysis failed",
           details: museResponse?.error ?? raw.slice(0, 500),
           httpStatus,
           finishReason,
           usage,
+          provider: modelProvider.label,
+          model,
           latencyMs: Date.now() - startTime,
           analysisStatus: "FAILED",
         },
@@ -165,7 +191,7 @@ Every observation must reference a real frameId from the provided set.`,
     }
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: `Muse request failed: ${msg}`, analysisStatus: "FAILED" }, { status: 502 });
+    return NextResponse.json({ error: `Model request failed: ${msg}`, analysisStatus: "FAILED", provider: modelProvider.label, model }, { status: 502 });
   }
 
   const latencyMs = Date.now() - startTime;
@@ -176,11 +202,13 @@ Every observation must reference a real frameId from the provided set.`,
     if (finishReason === "length") {
       return NextResponse.json(
         {
-          error: "Muse response truncated — too many frames or too long prompt",
+          error: "Model response truncated — too many frames or too long prompt",
           details: "Try with fewer frames or shorter expected behaviour",
           httpStatus,
           finishReason,
           usage,
+          provider: modelProvider.label,
+          model,
           latencyMs,
           analysisStatus: "FAILED",
         },
@@ -189,7 +217,7 @@ Every observation must reference a real frameId from the provided set.`,
     }
     return NextResponse.json(
       {
-        error: "Muse returned no content",
+      error: "Model returned no content",
         httpStatus,
         finishReason,
         usage,
@@ -212,7 +240,7 @@ Every observation must reference a real frameId from the provided set.`,
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       {
-        error: "Invalid structured response from Muse",
+        error: "Invalid structured response from model",
         details: msg,
         rawContent: contentStr.slice(0, 2000),
         httpStatus,
@@ -302,6 +330,8 @@ Every observation must reference a real frameId from the provided set.`,
           httpStatus,
           finishReason,
           usage,
+          provider: modelProvider.label,
+          model,
           latencyMs,
           analysisStatus: "FAILED",
           validationOutcome: "rejected",

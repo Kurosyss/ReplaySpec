@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { isAllowedUrl } from "@/lib/allowlist";
-import { runBug01Scenario, createPendingRun } from "@/lib/runs/runner";
+import { runScenario, createPendingRun } from "@/lib/runs/runner";
+import type { BugId } from "@/lib/runs/types";
 
 const RequestSchema = z.object({
+  bugId: z.enum(["BUG-01", "BUG-02", "BUG-03"]).default("BUG-01"),
   variant: z.enum(["buggy", "fixed"]),
   target: z.string().url().optional(),
 });
 
+const SCENARIO_ROUTES: Record<BugId, string> = {
+  "BUG-01": "/demo/bug-01",
+  "BUG-02": "/demo/bug-02",
+  "BUG-03": "/demo/bug-03",
+};
+
 /**
- * POST /api/runs — server-only execution for predetermined BUG-01 scenario
+ * POST /api/runs — server-only execution for predetermined bundled scenarios
  * Validates variant and target against allowlist, starts Playwright run in background,
  * persists screenshot, trace.zip, video.webm outside public/, returns runId immediately.
  * Does NOT accept arbitrary URLs, shell commands, or user-supplied scripts.
@@ -28,24 +36,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request", issues: parsed.error.issues }, { status: 400 });
   }
 
-  const { variant } = parsed.data;
-  const target = parsed.data.target ?? `http://localhost:3000/demo/bug-01?variant=${variant}`;
+  const { bugId, variant } = parsed.data;
+  const expectedPath = SCENARIO_ROUTES[bugId];
+  const testPort = process.env.PLAYWRIGHT_TEST === "1" ? process.env.REPLAYSPEC_TEST_PORT : undefined;
+  const targetOrigin = `http://localhost:${testPort ?? "3000"}`;
+  const target = parsed.data.target ?? `${targetOrigin}${expectedPath}?variant=${variant}`;
 
   if (!isAllowedUrl(target)) {
     return NextResponse.json({ error: `Target not allowlisted: ${target}` }, { status: 422 });
   }
 
   const url = new URL(target);
-  if (!url.pathname.startsWith("/demo/bug-01")) {
-    return NextResponse.json({ error: "Only BUG-01 scenario is supported in M3.2" }, { status: 422 });
+  if (url.pathname !== expectedPath || url.searchParams.get("variant") !== variant) {
+    return NextResponse.json({ error: "Target does not match the selected bundled scenario and variant" }, { status: 422 });
   }
 
   // Create pending run and start background execution (avoids deadlock where
   // Playwright page.goto would need the same Next.js dev server that's handling this request)
-  const pending = createPendingRun({ variant, target });
+  const pending = createPendingRun({ bugId, variant, target });
 
   // Run in background — do not await, so POST returns quickly and server is free to serve page.goto
-  runBug01Scenario({ variant, target, runId: pending.runId }).catch((e) => {
+  runScenario({ bugId, variant, target, runId: pending.runId }).catch((e) => {
     // runner already logs harness error to result.json
     console.error(`Background run ${pending.runId} failed:`, e);
   });
